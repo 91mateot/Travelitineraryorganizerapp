@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TripList } from './components/TripList';
 import { TripDetails } from './components/TripDetails';
 import { CalendarView } from './components/CalendarView';
@@ -6,6 +6,9 @@ import { AddTripDialog } from './components/AddTripDialog';
 import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { PlaneTakeoff, Calendar, List } from 'lucide-react';
+import { loadTrips, saveTrips } from './utils/storageService';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner@2.0.3';
 
 export interface SocialMediaLink {
   id: string;
@@ -56,78 +59,16 @@ export interface Trip {
 }
 
 export default function App() {
-  const [trips, setTrips] = useState<Trip[]>([
-    {
-      id: '1',
-      destination: 'Paris, France',
-      cities: [
-        { name: 'Paris', country: 'France', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34' },
-        { name: 'Lyon', country: 'France', image: 'https://images.unsplash.com/photo-1524168272322-bf73616d9cb5' }
-      ],
-      startDate: '2025-11-15',
-      endDate: '2025-11-22',
-      description: 'A week exploring the City of Light',
-      image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
-      status: 'upcoming',
-      activities: [
-        {
-          id: 'a1',
-          title: 'Flight to Paris',
-          time: '10:00 AM',
-          description: 'Air France AF1234',
-          location: 'Charles de Gaulle Airport',
-          type: 'flight',
-          day: '2025-11-15'
-        },
-        {
-          id: 'a2',
-          title: 'Hotel Check-in',
-          time: '3:00 PM',
-          description: 'Le Marais Hotel',
-          location: '4th Arrondissement',
-          type: 'hotel',
-          day: '2025-11-15'
-        },
-        {
-          id: 'a3',
-          title: 'Visit Eiffel Tower',
-          time: '10:00 AM',
-          description: 'Pre-booked tickets for summit access',
-          location: 'Champ de Mars',
-          type: 'activity',
-          day: '2025-11-16'
-        },
-        {
-          id: 'a4',
-          title: 'Lunch at Le Jules Verne',
-          time: '1:00 PM',
-          description: 'Fine dining with a view',
-          location: 'Eiffel Tower',
-          type: 'restaurant',
-          day: '2025-11-16'
-        }
-      ]
-    },
-    {
-      id: '2',
-      destination: 'Tokyo, Japan',
-      cities: [
-        { name: 'Tokyo', country: 'Japan', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf' },
-        { name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e' },
-        { name: 'Osaka', country: 'Japan', image: 'https://images.unsplash.com/photo-1590559899731-a382839e5549' }
-      ],
-      startDate: '2025-12-10',
-      endDate: '2025-12-17',
-      description: 'Exploring modern and traditional Japan',
-      image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf',
-      status: 'upcoming',
-      activities: []
-    }
-  ]);
-
+  // Load trips from localStorage on mount
+  const [trips, setTrips] = useState<Trip[]>(() => loadTrips());
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [tripTabState, setTripTabState] = useState<Record<string, { tab: string; scrollPosition: number }>>({});
+
+  // Save trips to localStorage whenever they change
+  useEffect(() => {
+    saveTrips(trips);
+  }, [trips]);
 
   const selectedTrip = trips.find(trip => trip.id === selectedTripId);
 
@@ -138,6 +79,7 @@ export default function App() {
       activities: []
     };
     setTrips([...trips, newTrip]);
+    toast.success(`Trip to ${trip.destination} created!`);
   };
 
   const updateTrip = (updatedTrip: Trip) => {
@@ -181,10 +123,12 @@ export default function App() {
   };
 
   const deleteTrip = (tripId: string) => {
+    const tripToDelete = trips.find(trip => trip.id === tripId);
     setTrips(trips.filter(trip => trip.id !== tripId));
     if (selectedTripId === tripId) {
       setSelectedTripId(null);
     }
+    toast.success(`Trip "${tripToDelete?.destination || 'Trip'}" permanently deleted`);
   };
 
   const updateTripTabState = (tripId: string, tab: string, scrollPosition: number) => {
@@ -283,11 +227,28 @@ export default function App() {
         </Tabs>
       </main>
 
+      {/* Footer */}
+      <footer className="border-t bg-white/60 backdrop-blur-sm mt-12">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <p>
+              💾 All trips are automatically saved to your browser's local storage
+            </p>
+            <p>
+              {trips.length} {trips.length === 1 ? 'trip' : 'trips'} saved
+            </p>
+          </div>
+        </div>
+      </footer>
+
       <AddTripDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onAddTrip={addTrip}
       />
+
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   );
 }
