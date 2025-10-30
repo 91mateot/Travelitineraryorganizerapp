@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trip, TripCity } from '../App';
 import {
   Dialog,
@@ -12,35 +12,33 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 import { Badge } from './ui/badge';
 import { worldCities, getCityDisplay, City } from '../utils/cityDatabase';
 import { X, MapPin, Search } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 
-interface AddTripDialogProps {
+interface EditTripInfoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddTrip: (trip: Omit<Trip, 'id' | 'activities'>) => void;
+  trip: Trip | null;
+  onUpdateInfo: (tripId: string, updates: { name?: string; cities: TripCity[]; description: string }) => void;
 }
 
-export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogProps) {
+export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: EditTripInfoDialogProps) {
+  const [tripName, setTripName] = useState('');
   const [selectedCities, setSelectedCities] = useState<TripCity[]>([]);
+  const [description, setDescription] = useState('');
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    startDate: '',
-    endDate: '',
-    description: '',
-    status: 'upcoming' as Trip['status']
-  });
+
+  // Initialize form with trip data when dialog opens
+  useEffect(() => {
+    if (trip) {
+      setTripName(trip.name || '');
+      setSelectedCities(trip.cities || []);
+      setDescription(trip.description || '');
+    }
+  }, [trip]);
 
   const handleAddCity = (city: City) => {
     // Check if city already added
@@ -63,32 +61,12 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (selectedCities.length === 0) return;
+    if (!trip || selectedCities.length === 0) return;
     
-    // Use first city as primary destination
-    const primaryCity = selectedCities[0];
-    const destinationName = selectedCities.length > 1
-      ? `${primaryCity.name} +${selectedCities.length - 1} more`
-      : `${primaryCity.name}, ${primaryCity.country}`;
-    
-    onAddTrip({
-      destination: destinationName,
+    onUpdateInfo(trip.id, {
+      name: tripName.trim() || undefined,
       cities: selectedCities,
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      description: formData.description,
-      image: primaryCity.image,
-      status: formData.status
-    });
-    
-    // Reset form
-    setSelectedCities([]);
-    setCitySearchQuery('');
-    setFormData({
-      startDate: '',
-      endDate: '',
-      description: '',
-      status: 'upcoming'
+      description: description.trim()
     });
     
     onOpenChange(false);
@@ -103,18 +81,33 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
     );
   });
 
+  if (!trip) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Plan a New Trip</DialogTitle>
+          <DialogTitle>Edit Trip Information</DialogTitle>
           <DialogDescription>
-            Add destinations and details about your upcoming adventure
+            Update the details of your trip
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tripName">Trip Name (Optional)</Label>
+              <Input
+                id="tripName"
+                placeholder="e.g., Summer Europe Adventure, Family Vacation..."
+                value={tripName}
+                onChange={(e) => setTripName(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                Leave empty to use city names as the trip name
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Destinations</Label>
               <p className="text-sm text-gray-500">
@@ -206,57 +199,15 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                  min={formData.startDate}
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 placeholder="What are you planning to do?"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: Trip['status']) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="upcoming">Upcoming</SelectItem>
-                  <SelectItem value="ongoing">Ongoing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -267,9 +218,9 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
             <Button 
               type="submit" 
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-              disabled={selectedCities.length === 0 || !formData.startDate || !formData.endDate}
+              disabled={selectedCities.length === 0}
             >
-              Create Trip
+              Save Changes
             </Button>
           </DialogFooter>
         </form>

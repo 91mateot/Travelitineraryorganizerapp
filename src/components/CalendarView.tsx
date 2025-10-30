@@ -147,7 +147,7 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                       onClick={() => onSelectTrip(trip.id)}
                       className={`w-full text-left px-2 py-1 rounded text-xs border transition-colors hover:shadow-sm ${getStatusColor(trip.status)}`}
                     >
-                      <div className="truncate">{trip.destination}</div>
+                      <div className="truncate">{trip.name || trip.destination}</div>
                     </button>
                   ))}
                 </div>
@@ -182,7 +182,28 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
-                  <h4 className="text-gray-900 mb-1">{trip.destination}</h4>
+                  <h4 className="text-gray-900 mb-1">{trip.name || trip.destination}</h4>
+                  
+                  {/* Cities badges */}
+                  {trip.cities && trip.cities.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {trip.cities.slice(0, 2).map((city, index) => (
+                        <Badge
+                          key={`${city.name}-${index}`}
+                          variant="outline"
+                          className="text-xs bg-gray-50"
+                        >
+                          {city.name}
+                        </Badge>
+                      ))}
+                      {trip.cities.length > 2 && (
+                        <Badge variant="outline" className="text-xs bg-gray-50">
+                          +{trip.cities.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                     <MapPin className="w-3 h-3" />
                     <span>

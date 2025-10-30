@@ -24,9 +24,17 @@ export interface Activity {
   socialMedia?: SocialMediaLink[];
 }
 
+export interface TripCity {
+  name: string;
+  country: string;
+  image: string;
+}
+
 export interface Trip {
   id: string;
-  destination: string;
+  name?: string; // Custom trip name (optional)
+  destination: string; // Keep for backward compatibility - will be primary city name
+  cities: TripCity[]; // Multiple cities/destinations
   startDate: string;
   endDate: string;
   description: string;
@@ -41,11 +49,14 @@ export default function App() {
     {
       id: '1',
       destination: 'Paris, France',
+      cities: [
+        { name: 'Paris', country: 'France', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34' },
+        { name: 'Lyon', country: 'France', image: 'https://images.unsplash.com/photo-1524168272322-bf73616d9cb5' }
+      ],
       startDate: '2025-11-15',
       endDate: '2025-11-22',
       description: 'A week exploring the City of Light',
       image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
-      budget: 2500,
       status: 'upcoming',
       activities: [
         {
@@ -89,6 +100,11 @@ export default function App() {
     {
       id: '2',
       destination: 'Tokyo, Japan',
+      cities: [
+        { name: 'Tokyo', country: 'Japan', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf' },
+        { name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e' },
+        { name: 'Osaka', country: 'Japan', image: 'https://images.unsplash.com/photo-1590559899731-a382839e5549' }
+      ],
       startDate: '2025-12-10',
       endDate: '2025-12-17',
       description: 'Exploring modern and traditional Japan',
@@ -123,6 +139,29 @@ export default function App() {
           ...trip,
           startDate,
           endDate
+        };
+      }
+      return trip;
+    }));
+  };
+
+  const updateTripInfo = (tripId: string, updates: { name?: string; cities: TripCity[]; description: string }) => {
+    setTrips(trips.map(trip => {
+      if (trip.id === tripId) {
+        // Update destination display name based on cities
+        const primaryCity = updates.cities[0];
+        const destination = updates.name || 
+          (updates.cities.length > 1
+            ? `${primaryCity.name} +${updates.cities.length - 1} more`
+            : `${primaryCity.name}, ${primaryCity.country}`);
+        
+        return {
+          ...trip,
+          name: updates.name,
+          cities: updates.cities,
+          destination,
+          description: updates.description,
+          image: primaryCity.image // Update image to first city
         };
       }
       return trip;
@@ -180,6 +219,7 @@ export default function App() {
                 onBack={() => setSelectedTripId(null)}
                 onUpdate={updateTrip}
                 onUpdateDates={updateTripDates}
+                onUpdateInfo={updateTripInfo}
                 onDelete={() => deleteTrip(selectedTrip.id)}
               />
             ) : (
@@ -199,6 +239,7 @@ export default function App() {
                 onBack={() => setSelectedTripId(null)}
                 onUpdate={updateTrip}
                 onUpdateDates={updateTripDates}
+                onUpdateInfo={updateTripInfo}
                 onDelete={() => deleteTrip(selectedTrip.id)}
               />
             ) : (

@@ -174,7 +174,29 @@ function TripCard({ trip, onSelect, onDelete, onEditDates, formatDate, getDurati
           </div>
         </div>
         <div className="p-5">
-          <h3 className="text-gray-900 mb-2">{trip.destination}</h3>
+          <h3 className="text-gray-900 mb-2">{trip.name || trip.destination}</h3>
+          
+          {/* Cities List */}
+          {trip.cities && trip.cities.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {trip.cities.slice(0, 3).map((city, index) => (
+                <Badge
+                  key={`${city.name}-${index}`}
+                  variant="outline"
+                  className="text-xs bg-gray-50"
+                >
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {city.name}
+                </Badge>
+              ))}
+              {trip.cities.length > 3 && (
+                <Badge variant="outline" className="text-xs bg-gray-50">
+                  +{trip.cities.length - 3} more
+                </Badge>
+              )}
+            </div>
+          )}
+          
           <p className="text-sm text-gray-600 mb-4 line-clamp-2">{trip.description}</p>
           
           <div className="space-y-2 mb-4">

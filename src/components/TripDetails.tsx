@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trip, Activity } from '../App';
+import { Trip, Activity, TripCity } from '../App';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Textarea } from './ui/textarea';
 import { AddActivityDialog } from './AddActivityDialog';
 import { EditTripDatesDialog } from './EditTripDatesDialog';
+import { EditTripInfoDialog } from './EditTripInfoDialog';
 import { WeatherCard } from './WeatherCard';
 import { SocialMediaPreview } from './SocialMediaPreview';
 import { getWeatherForTrip, WeatherData } from '../utils/weatherService';
@@ -34,12 +35,14 @@ interface TripDetailsProps {
   onBack: () => void;
   onUpdate: (trip: Trip) => void;
   onUpdateDates: (tripId: string, startDate: string, endDate: string) => void;
+  onUpdateInfo: (tripId: string, updates: { name?: string; cities: TripCity[]; description: string }) => void;
   onDelete: () => void;
 }
 
-export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onDelete }: TripDetailsProps) {
+export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInfo, onDelete }: TripDetailsProps) {
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [isEditDatesOpen, setIsEditDatesOpen] = useState(false);
+  const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [notes, setNotes] = useState(trip.notes || '');
@@ -203,12 +206,31 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onDelete }:
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-            <h1 className="text-white mb-2">{trip.destination}</h1>
+            <h1 className="text-white mb-2">{trip.name || trip.destination}</h1>
             <p className="text-white/90">{trip.description}</p>
           </div>
         </div>
         
         <div className="p-6 bg-white">
+          {/* Cities Section */}
+          {trip.cities && trip.cities.length > 0 && (
+            <div className="mb-4 pb-4 border-b">
+              <p className="text-sm text-gray-500 mb-2">Destinations</p>
+              <div className="flex flex-wrap gap-2">
+                {trip.cities.map((city, index) => (
+                  <Badge
+                    key={`${city.name}-${index}`}
+                    variant="outline"
+                    className="bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {city.name}, {city.country}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -222,7 +244,7 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onDelete }:
             
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <MapPin className="w-5 h-5 text-purple-600" />
+                <Calendar className="w-5 h-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Dates</p>
@@ -436,18 +458,60 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onDelete }:
 
         <TabsContent value="info">
           <Card className="p-6">
-            <h2 className="text-gray-900 mb-6">Trip Notes & Information</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-gray-900">Trip Notes & Information</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditInfoOpen(true)}
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Info
+              </Button>
+            </div>
             
             <div className="space-y-6">
               {/* Trip Details Summary */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b">
-                <div>
-                  <label className="text-sm text-gray-500 mb-2 block">Destination</label>
-                  <p className="text-gray-900">{trip.destination}</p>
+                {trip.name && (
+                  <div className="md:col-span-2">
+                    <label className="text-sm text-gray-500 mb-2 block">Trip Name</label>
+                    <p className="text-gray-900">{trip.name}</p>
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <label className="text-sm text-gray-500 mb-2 block">Destinations</label>
+                  {trip.cities && trip.cities.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {trip.cities.map((city, index) => (
+                        <Badge
+                          key={`${city.name}-${index}`}
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-sm py-1"
+                        >
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {city.name}, {city.country}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-900">{trip.destination}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm text-gray-500 mb-2 block">Trip Duration</label>
                   <p className="text-gray-900">{days.length} days ({formatShortDate(trip.startDate)} - {formatShortDate(trip.endDate)})</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 mb-2 block">Status</label>
+                  <Badge className={`${
+                    trip.status === 'upcoming' ? 'bg-blue-100 text-blue-700' :
+                    trip.status === 'ongoing' ? 'bg-green-100 text-green-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {trip.status}
+                  </Badge>
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-sm text-gray-500 mb-2 block">Description</label>
@@ -516,6 +580,13 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onDelete }:
         onOpenChange={setIsEditDatesOpen}
         trip={trip}
         onUpdateDates={onUpdateDates}
+      />
+
+      <EditTripInfoDialog
+        open={isEditInfoOpen}
+        onOpenChange={setIsEditInfoOpen}
+        trip={trip}
+        onUpdateInfo={onUpdateInfo}
       />
     </div>
   );
