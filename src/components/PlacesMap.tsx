@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Place } from '../App';
-import { GOOGLE_MAPS_API_KEY_VALUE } from '../utils/geocodingService';
+import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
 
 interface PlacesMapProps {
   places: Place[];
@@ -19,17 +19,14 @@ export function PlacesMap({ places }: PlacesMapProps) {
   const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
-    // Load Google Maps script if not already loaded
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY_VALUE}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initializeMap;
-      document.head.appendChild(script);
-    } else {
-      initializeMap();
-    }
+    loadGoogleMapsAPI()
+      .then(() => {
+        console.log('PlacesMap: Google Maps ready, initializing map');
+        initializeMap();
+      })
+      .catch((error) => {
+        console.error('PlacesMap: Failed to load Google Maps:', error);
+      });
   }, []);
 
   useEffect(() => {

@@ -17,6 +17,7 @@ import { SocialMediaPreview } from './SocialMediaPreview';
 import { PlacesMap } from './PlacesMap';
 import { getWeatherForTrip, WeatherData } from '../utils/weatherService';
 import { Skeleton } from './ui/skeleton';
+import { toast } from 'sonner@2.0.3';
 import {
   ArrowLeft,
   Calendar,
@@ -200,6 +201,7 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
       mapUrl
     };
     onUpdate(updatedTrip);
+    toast.success(trip.mapUrl ? 'Google Maps link updated!' : 'Google Maps link added!');
   };
 
   const addPlace = (place: Omit<Place, 'id'>) => {
@@ -682,6 +684,53 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                 )}
               </div>
 
+              {/* Google Maps List Section */}
+              <div className="pb-6 border-b">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="text-sm text-gray-700 block mb-1">Google Maps List</label>
+                    <p className="text-sm text-gray-500">
+                      Save a link to your Google Maps list for quick access to all your places
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddMapOpen(true)}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    {trip.mapUrl ? (
+                      <>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Link
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {trip.mapUrl ? (
+                  <div className="mt-3">
+                    <Button
+                      onClick={() => window.open(trip.mapUrl, '_blank')}
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open in Google Maps
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      No Google Maps list linked yet. Create a custom list in Google Maps with all your places and add the link here.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Notes Section */}
               <div>
                 <label className="text-sm text-gray-700 mb-2 block">Trip Notes</label>
@@ -755,6 +804,52 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Google Maps List Section */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Map className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-gray-900">Google Maps List</h3>
+                  </div>
+                  <Button
+                    onClick={() => setIsAddMapOpen(true)}
+                    size="sm"
+                    variant="outline"
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                  >
+                    {trip.mapUrl ? (
+                      <>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Link
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {trip.mapUrl ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      View your saved Google Maps list with all your places
+                    </p>
+                    <Button
+                      onClick={() => window.open(trip.mapUrl, '_blank')}
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open in Google Maps
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    Save a link to your Google Maps list to quickly access all your saved places. You can create a custom list in Google Maps with all the restaurants, hotels, and attractions for this trip.
+                  </p>
+                )}
               </div>
 
               {/* Interactive Map */}

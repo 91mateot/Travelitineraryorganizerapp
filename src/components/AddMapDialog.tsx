@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -14,6 +14,13 @@ interface AddMapDialogProps {
 
 export function AddMapDialog({ open, onOpenChange, onAdd, currentMapUrl }: AddMapDialogProps) {
   const [mapUrl, setMapUrl] = useState(currentMapUrl || '');
+
+  // Update mapUrl when currentMapUrl changes (for editing)
+  useEffect(() => {
+    if (open) {
+      setMapUrl(currentMapUrl || '');
+    }
+  }, [open, currentMapUrl]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,23 +52,33 @@ export function AddMapDialog({ open, onOpenChange, onAdd, currentMapUrl }: AddMa
                 required
               />
               <div className="space-y-2 text-sm text-gray-600">
-                <p>You can add:</p>
+                <p>Supported link types:</p>
                 <ul className="list-disc ml-4 space-y-1">
-                  <li>A Google Maps list or location URL (opens in new tab)</li>
-                  <li>A Google My Maps embed URL (displays inline)</li>
+                  <li>Google Maps saved list URL (e.g., google.com/maps/d/...)</li>
+                  <li>Google My Maps custom map URL</li>
+                  <li>Google Maps search or location URL</li>
+                  <li>Shared Google Maps list link</li>
                 </ul>
               </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-900 mb-2">
-                <strong>To embed a map:</strong>
+                <strong>💡 How to create a Google Maps list:</strong>
               </p>
               <ol className="text-sm text-blue-800 space-y-1 ml-4 list-decimal">
-                <li>Create a map at <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Google My Maps</a></li>
-                <li>Click menu → "Embed on my site"</li>
-                <li>Copy the URL from the iframe src attribute</li>
+                <li>Open <a href="https://www.google.com/maps/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Google Maps</a></li>
+                <li>Click "Saved" → "New list"</li>
+                <li>Add places to your list by searching and clicking "Save"</li>
+                <li>Click "Share list" → Copy the link</li>
+                <li>Paste the link here!</li>
               </ol>
+            </div>
+
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <p className="text-sm text-purple-900">
+                <strong>Alternative:</strong> You can also create a custom map at <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-900">Google My Maps</a> and paste its URL here.
+              </p>
             </div>
           </div>
           <DialogFooter>

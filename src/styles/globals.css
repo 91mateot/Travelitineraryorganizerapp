@@ -187,3 +187,53 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Google Places Autocomplete styling */
+.pac-container {
+  background-color: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  margin-top: 4px;
+  font-family: inherit;
+  z-index: 9999 !important;
+}
+
+.pac-container:after {
+  display: none;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pac-item:first-child {
+  border-top: none;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: #f3f3f5;
+}
+
+.pac-item-query {
+  font-weight: 500;
+  color: #030213;
+}
+
+.pac-matched {
+  font-weight: 600;
+}
+
+.pac-icon {
+  margin-top: 3px;
+}
+
+/* Ensure autocomplete appears above dialogs */
+.pac-container {
+  position: absolute !important;
+}
