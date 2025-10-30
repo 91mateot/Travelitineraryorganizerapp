@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trip, Activity, TripCity } from '../App';
+import { Trip, Activity, TripCity, Place } from '../App';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -7,10 +7,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Textarea } from './ui/textarea';
 import { AddActivityDialog } from './AddActivityDialog';
+import { AddPlaceDialog } from './AddPlaceDialog';
+import { ImportPlacesDialog } from './ImportPlacesDialog';
+import { AddMapDialog } from './AddMapDialog';
 import { EditTripDatesDialog } from './EditTripDatesDialog';
 import { EditTripInfoDialog } from './EditTripInfoDialog';
 import { WeatherCard } from './WeatherCard';
 import { SocialMediaPreview } from './SocialMediaPreview';
+import { PlacesMap } from './PlacesMap';
 import { getWeatherForTrip, WeatherData } from '../utils/weatherService';
 import { Skeleton } from './ui/skeleton';
 import {
@@ -27,7 +31,10 @@ import {
   Trash2,
   Edit,
   FileText,
-  CalendarDays
+  CalendarDays,
+  Map,
+  ExternalLink,
+  Download
 } from 'lucide-react';
 
 interface TripDetailsProps {
@@ -37,15 +44,22 @@ interface TripDetailsProps {
   onUpdateDates: (tripId: string, startDate: string, endDate: string) => void;
   onUpdateInfo: (tripId: string, updates: { name?: string; cities: TripCity[]; description: string }) => void;
   onDelete: () => void;
+  defaultTab?: string;
+  defaultScrollPosition?: number;
+  onTabChange?: (tab: string, scrollPosition: number) => void;
 }
 
-export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInfo, onDelete }: TripDetailsProps) {
+export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInfo, onDelete, defaultTab = 'info', defaultScrollPosition = 0, onTabChange }: TripDetailsProps) {
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [isEditDatesOpen, setIsEditDatesOpen] = useState(false);
   const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
+  const [isAddMapOpen, setIsAddMapOpen] = useState(false);
+  const [isAddPlaceOpen, setIsAddPlaceOpen] = useState(false);
+  const [isImportPlacesOpen, setIsImportPlacesOpen] = useState(false);
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [notes, setNotes] = useState(trip.notes || '');
+  const [currentTab, setCurrentTab] = useState(defaultTab);
 
   const formatDate = (date: string) => {
     // Parse date string components to avoid timezone issues
@@ -88,6 +102,37 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
   };
 
   const days = getDaysBetween(trip.startDate, trip.endDate);
+
+  // Update current tab when trip changes
+  // Update current tab only when trip changes (not when defaultTab changes from state updates)
+  useEffect(() => {
+    setCurrentTab(defaultTab);
+  }, [trip.id]);
+
+  // Restore scroll position when trip is loaded
+  useEffect(() => {
+    if (defaultScrollPosition > 0) {
+      setTimeout(() => {
+        window.scrollTo(0, defaultScrollPosition);
+      }, 100);
+    }
+  }, [trip.id]);
+
+  // Track tab changes and scroll position
+  const handleTabChange = (newTab: string) => {
+    if (onTabChange) {
+      onTabChange(currentTab, window.scrollY);
+    }
+    setCurrentTab(newTab);
+  };
+
+  // Save scroll position before navigating away
+  const handleBack = () => {
+    if (onTabChange) {
+      onTabChange(currentTab, window.scrollY);
+    }
+    onBack();
+  };
 
   // Fetch weather data when component mounts or trip changes
   useEffect(() => {
@@ -149,6 +194,50 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
     onUpdate(updatedTrip);
   };
 
+  const addMap = (mapUrl: string) => {
+    const updatedTrip = {
+      ...trip,
+      mapUrl
+    };
+    onUpdate(updatedTrip);
+  };
+
+  const addPlace = (place: Omit<Place, 'id'>) => {
+    const newPlace: Place = {
+      ...place,
+      id: Date.now().toString()
+    };
+    
+    const updatedTrip = {
+      ...trip,
+      places: [...(trip.places || []), newPlace]
+    };
+    
+    onUpdate(updatedTrip);
+  };
+
+  const importPlaces = (places: Omit<Place, 'id'>[]) => {
+    const newPlaces: Place[] = places.map((place, index) => ({
+      ...place,
+      id: (Date.now() + index).toString()
+    }));
+    
+    const updatedTrip = {
+      ...trip,
+      places: [...(trip.places || []), ...newPlaces]
+    };
+    
+    onUpdate(updatedTrip);
+  };
+
+  const deletePlace = (placeId: string) => {
+    const updatedTrip = {
+      ...trip,
+      places: (trip.places || []).filter(p => p.id !== placeId)
+    };
+    onUpdate(updatedTrip);
+  };
+
   const updateNotes = (newNotes: string) => {
     setNotes(newNotes);
     onUpdate({ ...trip, notes: newNotes });
@@ -191,7 +280,7 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Button variant="ghost" onClick={onBack} className="mb-4">
+      <Button variant="ghost" onClick={handleBack} className="mb-4">
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to trips
       </Button>
@@ -231,7 +320,26 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Calendar className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-500">Dates</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-900">{formatShortDate(trip.startDate)} - {formatShortDate(trip.endDate)}</p>
+                  <button
+                    onClick={() => setIsEditDatesOpen(true)}
+                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                    title="Edit dates"
+                  >
+                    <Edit className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="w-5 h-5 text-blue-600" />
@@ -241,43 +349,27 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                 <p className="text-gray-900">{days.length} days</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Calendar className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Dates</p>
-                <p className="text-gray-900">{formatShortDate(trip.startDate)} - {formatShortDate(trip.endDate)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pt-4 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditDatesOpen(true)}
-              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Dates
-            </Button>
           </div>
         </div>
       </Card>
 
       {/* Tabs for Itinerary and General Info */}
-      <Tabs defaultValue="itinerary" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-          <TabsTrigger value="itinerary" className="flex items-center gap-2">
-            <CalendarDays className="w-4 h-4" />
-            Itinerary
-          </TabsTrigger>
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className={`grid w-full max-w-md ${(trip.places && trip.places.length > 0) ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
           <TabsTrigger value="info" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             General Info
           </TabsTrigger>
+          <TabsTrigger value="itinerary" className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            Itinerary
+          </TabsTrigger>
+          {trip.places && trip.places.length > 0 && (
+            <TabsTrigger value="places" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Places ({trip.places.length})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="itinerary">
@@ -550,6 +642,46 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                 </div>
               </div>
 
+              {/* Places Section */}
+              <div className="pb-6 border-b">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="text-sm text-gray-700 block mb-1">Saved Places</label>
+                    <p className="text-sm text-gray-500">
+                      Add restaurants, hotels, attractions, and other places to visit
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsImportPlacesOpen(true)}
+                      className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Import
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAddPlaceOpen(true)}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Place
+                    </Button>
+                  </div>
+                </div>
+                {trip.places && trip.places.length > 0 && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-green-800">
+                      <MapPin className="w-4 h-4" />
+                      <span>{trip.places.length} place{trip.places.length !== 1 ? 's' : ''} saved - view in Places tab</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Notes Section */}
               <div>
                 <label className="text-sm text-gray-700 mb-2 block">Trip Notes</label>
@@ -566,6 +698,146 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
             </div>
           </Card>
         </TabsContent>
+
+        {/* Places Tab */}
+        {trip.places && trip.places.length > 0 && (
+          <TabsContent value="places">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-gray-900">Saved Places</h2>
+                  <p className="text-sm text-gray-500 mt-1">{trip.places.length} place{trip.places.length !== 1 ? 's' : ''} to visit on your trip</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setIsImportPlacesOpen(true)}
+                    size="sm"
+                    variant="outline"
+                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Import from Maps
+                  </Button>
+                  <Button
+                    onClick={() => setIsAddPlaceOpen(true)}
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Place
+                  </Button>
+                </div>
+              </div>
+
+              {/* Category filters */}
+              <div className="mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'restaurant', 'hotel', 'attraction', 'shopping', 'transport', 'other'].map((cat) => {
+                    const count = cat === 'all' 
+                      ? trip.places.length 
+                      : trip.places.filter(p => p.category === cat).length;
+                    
+                    if (count === 0 && cat !== 'all') return null;
+                    
+                    return (
+                      <Badge
+                        key={cat}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-blue-50"
+                      >
+                        {cat === 'all' ? '📍 All' : 
+                         cat === 'restaurant' ? '🍽️ Restaurants' :
+                         cat === 'hotel' ? '🏨 Hotels' :
+                         cat === 'attraction' ? '🎭 Attractions' :
+                         cat === 'shopping' ? '🛍️ Shopping' :
+                         cat === 'transport' ? '🚇 Transport' :
+                         '📍 Other'} ({count})
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Interactive Map */}
+              <div className="mb-6">
+                <PlacesMap places={trip.places} />
+                {trip.places.some(p => p.coordinates) && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Click markers to view place details • Markers are color-coded by category
+                  </p>
+                )}
+              </div>
+
+              {/* Places List */}
+              <div className="space-y-3">
+                {trip.places.map((place) => {
+                  const categoryIcons = {
+                    restaurant: { icon: Utensils, color: 'bg-orange-100 text-orange-600' },
+                    hotel: { icon: Hotel, color: 'bg-blue-100 text-blue-600' },
+                    attraction: { icon: ActivityIcon, color: 'bg-purple-100 text-purple-600' },
+                    shopping: { icon: MapPin, color: 'bg-pink-100 text-pink-600' },
+                    transport: { icon: Car, color: 'bg-green-100 text-green-600' },
+                    other: { icon: MapPin, color: 'bg-gray-100 text-gray-600' },
+                  };
+
+                  const { icon: Icon, color } = categoryIcons[place.category];
+
+                  return (
+                    <Card key={place.id} className="p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-lg flex-shrink-0 ${color}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h3 className="text-gray-900">{place.name}</h3>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deletePlace(place.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2 text-sm text-gray-600">
+                              <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                              <span>{place.address}</span>
+                            </div>
+                            {place.notes && (
+                              <p className="text-sm text-gray-600">{place.notes}</p>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {place.category}
+                              </Badge>
+                              {place.coordinates && (
+                                <>
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                    📍 On map
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${place.coordinates}`, '_blank')}
+                                    className="text-blue-600 hover:text-blue-700 text-xs h-6 px-2"
+                                  >
+                                    <ExternalLink className="w-3 h-3 mr-1" />
+                                    Open in Google Maps
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       <AddActivityDialog
@@ -587,6 +859,25 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
         onOpenChange={setIsEditInfoOpen}
         trip={trip}
         onUpdateInfo={onUpdateInfo}
+      />
+
+      <AddMapDialog
+        open={isAddMapOpen}
+        onOpenChange={setIsAddMapOpen}
+        onAdd={addMap}
+        currentMapUrl={trip.mapUrl}
+      />
+
+      <AddPlaceDialog
+        open={isAddPlaceOpen}
+        onOpenChange={setIsAddPlaceOpen}
+        onAdd={addPlace}
+      />
+
+      <ImportPlacesDialog
+        open={isImportPlacesOpen}
+        onOpenChange={setIsImportPlacesOpen}
+        onImport={importPlaces}
       />
     </div>
   );

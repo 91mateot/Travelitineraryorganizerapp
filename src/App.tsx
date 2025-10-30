@@ -30,6 +30,15 @@ export interface TripCity {
   image: string;
 }
 
+export interface Place {
+  id: string;
+  name: string;
+  address: string;
+  category: 'restaurant' | 'hotel' | 'attraction' | 'shopping' | 'transport' | 'other';
+  notes?: string;
+  coordinates?: string; // Format: "lat,lng"
+}
+
 export interface Trip {
   id: string;
   name?: string; // Custom trip name (optional)
@@ -42,6 +51,8 @@ export interface Trip {
   activities: Activity[];
   status: 'upcoming' | 'ongoing' | 'completed';
   notes?: string;
+  mapUrl?: string; // Google Maps list URL
+  places?: Place[]; // Saved places for the trip
 }
 
 export default function App() {
@@ -116,6 +127,7 @@ export default function App() {
 
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [tripTabState, setTripTabState] = useState<Record<string, { tab: string; scrollPosition: number }>>({});
 
   const selectedTrip = trips.find(trip => trip.id === selectedTripId);
 
@@ -175,13 +187,23 @@ export default function App() {
     }
   };
 
+  const updateTripTabState = (tripId: string, tab: string, scrollPosition: number) => {
+    setTripTabState(prev => ({
+      ...prev,
+      [tripId]: { tab, scrollPosition }
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setSelectedTripId(null)}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
               <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-xl">
                 <PlaneTakeoff className="w-6 h-6 text-white" />
               </div>
@@ -189,7 +211,7 @@ export default function App() {
                 <h1 className="text-gray-900">TravelPlanner</h1>
                 <p className="text-sm text-gray-500">Organize your adventures</p>
               </div>
-            </div>
+            </button>
             <Button onClick={() => setIsAddDialogOpen(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
               <PlaneTakeoff className="w-4 h-4 mr-2" />
               New Trip
@@ -201,16 +223,18 @@ export default function App() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="list" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <List className="w-4 h-4" />
-              My Trips
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Calendar View
-            </TabsTrigger>
-          </TabsList>
+          {!selectedTripId && (
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+              <TabsTrigger value="list" className="flex items-center gap-2">
+                <List className="w-4 h-4" />
+                My Trips
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Calendar View
+              </TabsTrigger>
+            </TabsList>
+          )}
 
           <TabsContent value="list" className="space-y-6">
             {selectedTrip ? (
@@ -221,6 +245,9 @@ export default function App() {
                 onUpdateDates={updateTripDates}
                 onUpdateInfo={updateTripInfo}
                 onDelete={() => deleteTrip(selectedTrip.id)}
+                defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
+                defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
+                onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
               />
             ) : (
               <TripList
@@ -228,6 +255,7 @@ export default function App() {
                 onSelectTrip={setSelectedTripId}
                 onDeleteTrip={deleteTrip}
                 onUpdateDates={updateTripDates}
+                onUpdateInfo={updateTripInfo}
               />
             )}
           </TabsContent>
@@ -241,6 +269,9 @@ export default function App() {
                 onUpdateDates={updateTripDates}
                 onUpdateInfo={updateTripInfo}
                 onDelete={() => deleteTrip(selectedTrip.id)}
+                defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
+                defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
+                onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
               />
             ) : (
               <CalendarView

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Trip } from '../App';
+import { Trip, TripCity } from '../App';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { MapPin, Calendar, Trash2, Edit } from 'lucide-react';
+import { MapPin, Calendar, Trash2, Edit, Pencil } from 'lucide-react';
 import { EditTripDatesDialog } from './EditTripDatesDialog';
+import { EditTripInfoDialog } from './EditTripInfoDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,10 +23,12 @@ interface TripListProps {
   onSelectTrip: (tripId: string) => void;
   onDeleteTrip: (tripId: string) => void;
   onUpdateDates: (tripId: string, startDate: string, endDate: string) => void;
+  onUpdateInfo: (tripId: string, updates: { name?: string; cities: TripCity[]; description: string }) => void;
 }
 
-export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates }: TripListProps) {
-  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onUpdateInfo }: TripListProps) {
+  const [editingDatesTrip, setEditingDatesTrip] = useState<Trip | null>(null);
+  const [editingInfoTrip, setEditingInfoTrip] = useState<Trip | null>(null);
 
   const formatDate = (date: string) => {
     // Parse date string components to avoid timezone issues
@@ -86,7 +89,8 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates }: T
                   trip={trip}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
-                  onEditDates={setEditingTrip}
+                  onEditDates={setEditingDatesTrip}
+                  onEditInfo={setEditingInfoTrip}
                   formatDate={formatDate}
                   getDuration={getDuration}
                   getStatusColor={getStatusColor}
@@ -106,7 +110,8 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates }: T
                   trip={trip}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
-                  onEditDates={setEditingTrip}
+                  onEditDates={setEditingDatesTrip}
+                  onEditInfo={setEditingInfoTrip}
                   formatDate={formatDate}
                   getDuration={getDuration}
                   getStatusColor={getStatusColor}
@@ -126,7 +131,8 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates }: T
                   trip={trip}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
-                  onEditDates={setEditingTrip}
+                  onEditDates={setEditingDatesTrip}
+                  onEditInfo={setEditingInfoTrip}
                   formatDate={formatDate}
                   getDuration={getDuration}
                   getStatusColor={getStatusColor}
@@ -138,10 +144,17 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates }: T
       </div>
 
       <EditTripDatesDialog
-        open={!!editingTrip}
-        onOpenChange={(open) => !open && setEditingTrip(null)}
-        trip={editingTrip}
+        open={!!editingDatesTrip}
+        onOpenChange={(open) => !open && setEditingDatesTrip(null)}
+        trip={editingDatesTrip}
         onUpdateDates={onUpdateDates}
+      />
+
+      <EditTripInfoDialog
+        open={!!editingInfoTrip}
+        onOpenChange={(open) => !open && setEditingInfoTrip(null)}
+        trip={editingInfoTrip}
+        onUpdateInfo={onUpdateInfo}
       />
     </>
   );
@@ -152,12 +165,13 @@ interface TripCardProps {
   onSelect: (tripId: string) => void;
   onDelete: (tripId: string) => void;
   onEditDates: (trip: Trip) => void;
+  onEditInfo: (trip: Trip) => void;
   formatDate: (date: string) => string;
   getDuration: (startDate: string, endDate: string) => string;
   getStatusColor: (status: Trip['status']) => string;
 }
 
-function TripCard({ trip, onSelect, onDelete, onEditDates, formatDate, getDuration, getStatusColor }: TripCardProps) {
+function TripCard({ trip, onSelect, onDelete, onEditDates, onEditInfo, formatDate, getDuration, getStatusColor }: TripCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
       <div onClick={() => onSelect(trip.id)}>
@@ -174,7 +188,19 @@ function TripCard({ trip, onSelect, onDelete, onEditDates, formatDate, getDurati
           </div>
         </div>
         <div className="p-5">
-          <h3 className="text-gray-900 mb-2">{trip.name || trip.destination}</h3>
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-gray-900 flex-1">{trip.name || trip.destination}</h3>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditInfo(trip);
+              }}
+              className="text-gray-400 hover:text-blue-600 transition-colors p-1 -mt-1"
+              title="Edit trip info"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
           
           {/* Cities List */}
           {trip.cities && trip.cities.length > 0 && (
@@ -203,6 +229,16 @@ function TripCard({ trip, onSelect, onDelete, onEditDates, formatDate, getDurati
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Calendar className="w-4 h-4" />
               <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditDates(trip);
+                }}
+                className="text-gray-400 hover:text-blue-600 transition-colors ml-1"
+                title="Edit dates"
+              >
+                <Edit className="w-3 h-3" />
+              </button>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <MapPin className="w-4 h-4" />
@@ -218,20 +254,7 @@ function TripCard({ trip, onSelect, onDelete, onEditDates, formatDate, getDurati
         </div>
       </div>
       
-      <div className="px-5 pb-4 grid grid-cols-2 gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditDates(trip);
-          }}
-        >
-          <Edit className="w-4 h-4 mr-2" />
-          Edit Dates
-        </Button>
-        
+      <div className="px-5 pb-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button

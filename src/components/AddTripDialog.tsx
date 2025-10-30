@@ -72,6 +72,7 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
       : `${primaryCity.name}, ${primaryCity.country}`;
     
     onAddTrip({
+      name: formData.name.trim() || undefined,
       destination: destinationName,
       cities: selectedCities,
       startDate: formData.startDate,
@@ -85,6 +86,7 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
     setSelectedCities([]);
     setCitySearchQuery('');
     setFormData({
+      name: '',
       startDate: '',
       endDate: '',
       description: '',
@@ -115,6 +117,19 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
         
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tripName">Trip Name (Optional)</Label>
+              <Input
+                id="tripName"
+                placeholder="e.g., Summer Europe Adventure, Family Vacation..."
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+              <p className="text-xs text-gray-500">
+                Leave empty to use city names as the trip name
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Destinations</Label>
               <p className="text-sm text-gray-500">
