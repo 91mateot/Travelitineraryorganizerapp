@@ -20,9 +20,9 @@ import {
   SelectValue,
 } from './ui/select';
 import { Badge } from './ui/badge';
-import { worldCities, getCityDisplay, City } from '../utils/cityDatabase';
-import { X, MapPin, Search } from 'lucide-react';
-import { ScrollArea } from './ui/scroll-area';
+import { X, MapPin } from 'lucide-react';
+import { PlaceAutocomplete } from './PlaceAutocomplete';
+import { toast } from 'sonner@2.0.3';
 
 interface AddTripDialogProps {
   open: boolean;
@@ -33,7 +33,6 @@ interface AddTripDialogProps {
 export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogProps) {
   const [selectedCities, setSelectedCities] = useState<TripCity[]>([]);
   const [citySearchQuery, setCitySearchQuery] = useState('');
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -42,18 +41,51 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
     status: 'upcoming' as Trip['status']
   });
 
-  const handleAddCity = (city: City) => {
-    // Check if city already added
+  const handlePlaceSelected = (place: { name: string; address: string; coordinates: string }) => {
+    // Parse city and country from address
+    const addressParts = place.address.split(',').map(s => s.trim());
+    let cityName = place.name;
+    let country = 'Unknown';
+    
+    // Try to extract country (usually last part of address)
+    if (addressParts.length > 0) {
+      country = addressParts[addressParts.length - 1];
+      // If the name doesn't seem like a city, use the first address part
+      if (addressParts.length > 1 && !place.name.includes(',')) {
+        // Check if name is in the address - if so, keep it, otherwise use address part
+        const nameInAddress = addressParts.some(part => part.toLowerCase().includes(place.name.toLowerCase()));
+        if (!nameInAddress && addressParts[0].length > 2) {
+          cityName = addressParts[0];
+        }
+      }
+    }
+
+    // Check if destination already added
     const alreadyAdded = selectedCities.some(
-      c => c.name === city.name && c.country === city.country
+      c => c.name.toLowerCase() === cityName.toLowerCase() && c.country.toLowerCase() === country.toLowerCase()
     );
     
-    if (!alreadyAdded) {
-      setSelectedCities([...selectedCities, city]);
+    if (alreadyAdded) {
+      toast.info('Destination already added', {
+        description: `${cityName} is already in your trip`
+      });
+      setCitySearchQuery('');
+      return;
     }
+
+    // Create new city with a default image
+    const newCity: TripCity = {
+      name: cityName,
+      country: country,
+      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800' // Default travel image
+    };
     
+    setSelectedCities([...selectedCities, newCity]);
     setCitySearchQuery('');
-    setShowCityDropdown(false);
+    
+    toast.success('✨ Destination added!', {
+      description: `${cityName}, ${country}`
+    });
   };
 
   const handleRemoveCity = (index: number) => {
@@ -96,17 +128,24 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
     onOpenChange(false);
   };
 
-  const filteredCities = worldCities.filter(city => {
-    if (!citySearchQuery) return true;
-    const query = citySearchQuery.toLowerCase();
-    return (
-      city.name.toLowerCase().includes(query) ||
-      city.country.toLowerCase().includes(query)
-    );
-  });
+  // Reset form when dialog closes
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setSelectedCities([]);
+      setCitySearchQuery('');
+      setFormData({
+        name: '',
+        startDate: '',
+        endDate: '',
+        description: '',
+        status: 'upcoming'
+      });
+    }
+    onOpenChange(isOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Plan a New Trip</DialogTitle>
@@ -133,70 +172,17 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
             <div className="space-y-2">
               <Label>Destinations</Label>
               <p className="text-sm text-gray-500">
-                Search and add cities you'll be visiting
+                Search and add any cities, regions, or locations worldwide
               </p>
               
-              {/* City Search Input */}
-              <div className="relative">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search cities worldwide..."
-                    value={citySearchQuery}
-                    onChange={(e) => {
-                      setCitySearchQuery(e.target.value);
-                      setShowCityDropdown(true);
-                    }}
-                    onFocus={() => setShowCityDropdown(true)}
-                    className="pl-9"
-                  />
-                </div>
-
-                {/* City Dropdown */}
-                {showCityDropdown && citySearchQuery && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg">
-                    <ScrollArea className="h-[200px]">
-                      <div className="p-1">
-                        {filteredCities.length > 0 ? (
-                          filteredCities.slice(0, 50).map((city, index) => {
-                            const isSelected = selectedCities.some(
-                              c => c.name === city.name && c.country === city.country
-                            );
-                            return (
-                              <button
-                                key={`${city.name}-${city.country}-${index}`}
-                                type="button"
-                                onClick={() => handleAddCity(city)}
-                                className={`w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 flex items-center gap-2 ${
-                                  isSelected ? 'bg-blue-50' : ''
-                                }`}
-                              >
-                                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm">{getCityDisplay(city)}</span>
-                                {isSelected && (
-                                  <span className="ml-auto text-xs text-blue-600">✓ Added</span>
-                                )}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div className="px-3 py-6 text-center text-sm text-gray-500">
-                            No cities found
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-              </div>
-
-              {/* Click outside to close dropdown */}
-              {showCityDropdown && (
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowCityDropdown(false)}
-                />
-              )}
+              {/* PlaceAutocomplete for worldwide search */}
+              <PlaceAutocomplete
+                key={`autocomplete-${open}`}
+                value={citySearchQuery}
+                onChange={setCitySearchQuery}
+                onPlaceSelected={handlePlaceSelected}
+                placeholder="Search: Lake Como, Woodbridge VA, Paris, Tokyo..."
+              />
 
               {/* Selected Cities */}
               {selectedCities.length > 0 && (
@@ -207,7 +193,7 @@ export function AddTripDialog({ open, onOpenChange, onAddTrip }: AddTripDialogPr
                       variant="secondary"
                       className="pl-3 pr-1 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200"
                     >
-                      <span className="mr-2">{getCityDisplay(city)}</span>
+                      <span className="mr-2">{city.name}, {city.country}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveCity(index)}

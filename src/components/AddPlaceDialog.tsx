@@ -148,7 +148,7 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
                     value={name}
                     onChange={setName}
                     onPlaceSelected={handlePlaceSelected}
-                    placeholder="Search for Yankee Stadium, restaurants, hotels..."
+                    placeholder="Search any city, landmark, restaurant, hotel, or location..."
                   />
                   {!name && (
                     <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">

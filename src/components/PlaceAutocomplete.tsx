@@ -77,10 +77,11 @@ export function PlaceAutocomplete({
         throw new Error('Google Places Autocomplete not available');
       }
       
-      // Initialize the autocomplete
+      // Initialize the autocomplete without type restrictions to allow worldwide search
+      // This enables searching for cities, regions, landmarks, establishments, and natural features
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
-        fields: ['name', 'formatted_address', 'geometry', 'types', 'place_id'],
-        types: ['establishment', 'geocode']
+        fields: ['name', 'formatted_address', 'geometry', 'types', 'place_id']
+        // No types restriction - allows searching for any place worldwide
       });
 
       // Add listener for place selection
@@ -194,7 +195,7 @@ export function PlaceAutocomplete({
       )}
       {scriptLoaded && !scriptError && (
         <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded text-xs text-blue-900">
-          🔍 <strong>Start typing to search:</strong> "Yankee Stadium", "Eiffel Tower", "Central Park", etc.
+          🔍 <strong>Search any location worldwide:</strong> Cities, landmarks, restaurants, hotels, natural features, etc.
         </div>
       )}
     </div>
