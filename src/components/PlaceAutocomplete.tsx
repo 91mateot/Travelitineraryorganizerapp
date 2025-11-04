@@ -80,9 +80,24 @@ export function PlaceAutocomplete({
       // Initialize the autocomplete without type restrictions to allow worldwide search
       // This enables searching for cities, regions, landmarks, establishments, and natural features
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
-        fields: ['name', 'formatted_address', 'geometry', 'types', 'place_id']
+        fields: ['name', 'formatted_address', 'geometry', 'types', 'place_id'],
         // No types restriction - allows searching for any place worldwide
       });
+
+      console.log('✅ Autocomplete instance created');
+
+      // Debug: Add click listener to pac-container when it appears
+      const checkForPacContainer = setInterval(() => {
+        const pacContainer = document.querySelector('.pac-container');
+        if (pacContainer) {
+          console.log('✅ pac-container found, z-index:', window.getComputedStyle(pacContainer).zIndex);
+          console.log('pac-container pointer-events:', window.getComputedStyle(pacContainer).pointerEvents);
+          clearInterval(checkForPacContainer);
+        }
+      }, 100);
+
+      // Clear the interval after 3 seconds
+      setTimeout(() => clearInterval(checkForPacContainer), 3000);
 
       // Add listener for place selection
       listenerRef.current = autocompleteRef.current.addListener('place_changed', () => {
@@ -160,6 +175,20 @@ export function PlaceAutocomplete({
     onChange(newValue);
   };
 
+  // Prevent form submission when pressing Enter in autocomplete
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // Let Google autocomplete handle Enter key for selection
+      const pacContainer = document.querySelector('.pac-container');
+      if (pacContainer && pacContainer.querySelector('.pac-item-selected')) {
+        // Don't prevent default - let Google handle the selection
+        return;
+      }
+      // If no item selected, prevent form submission
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="relative">
       <div className="relative">
@@ -168,10 +197,12 @@ export function PlaceAutocomplete({
           ref={inputRef}
           defaultValue={value}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           placeholder={scriptLoaded ? placeholder : "Loading search..."}
           disabled={disabled || !scriptLoaded}
           className="pl-10 pr-10"
           autoComplete="off"
+          type="text"
         />
         {isLoading && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500 pointer-events-none z-10" />

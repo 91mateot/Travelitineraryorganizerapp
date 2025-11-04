@@ -85,6 +85,7 @@
     --color-orange-500: oklch(.705 .213 47.604);
     --color-orange-600: oklch(.646 .222 41.116);
     --color-orange-700: oklch(.553 .195 38.402);
+    --color-amber-600: oklch(.666 .179 58.318);
     --color-yellow-50: oklch(.987 .026 102.212);
     --color-yellow-500: oklch(.795 .184 86.047);
     --color-green-50: oklch(.982 .018 155.826);
@@ -1769,6 +1770,10 @@
     white-space: nowrap;
   }
 
+  .text-amber-600 {
+    color: var(--color-amber-600);
+  }
+
   .text-blue-300 {
     color: var(--color-blue-300);
   }
@@ -2634,6 +2639,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:inline {
+      display: inline;
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:max-w-\[425px\] {
       max-width: 425px;
     }
@@ -3017,50 +3028,57 @@ html {
 }
 
 .pac-container {
-  background-color: #fff;
-  border: 1px solid #0000001a;
-  border-radius: .5rem;
-  margin-top: 4px;
-  font-family: inherit;
-  box-shadow: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a;
-  z-index: 9999 !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  background-color: #fff !important;
+  border: 1px solid #0000001a !important;
+  border-radius: .5rem !important;
+  margin-top: 4px !important;
+  font-family: inherit !important;
+  position: fixed !important;
+  box-shadow: 0 10px 25px -5px #00000026, 0 10px 10px -5px #0000001a !important;
 }
 
 .pac-container:after {
-  display: none;
+  display: none !important;
 }
 
 .pac-item {
-  cursor: pointer;
-  border-top: 1px solid #0000000d;
-  padding: 8px 12px;
-  font-size: 14px;
-  line-height: 1.5;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  border-top: 1px solid #0000000d !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
 }
 
 .pac-item:first-child {
-  border-top: none;
+  border-top: none !important;
 }
 
 .pac-item:hover, .pac-item-selected {
-  background-color: #f3f3f5;
+  background-color: #f3f3f5 !important;
 }
 
 .pac-item-query {
-  color: #030213;
-  font-weight: 500;
+  color: #030213 !important;
+  pointer-events: none !important;
+  font-weight: 500 !important;
 }
 
 .pac-matched {
-  font-weight: 600;
+  font-weight: 600 !important;
 }
 
 .pac-icon {
-  margin-top: 3px;
+  pointer-events: none !important;
+  margin-top: 3px !important;
 }
 
-.pac-container {
-  position: absolute !important;
+.pac-item span {
+  pointer-events: none !important;
 }
 
 @property --tw-translate-x {

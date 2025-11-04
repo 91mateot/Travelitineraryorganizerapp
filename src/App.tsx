@@ -5,10 +5,11 @@ import { CalendarView } from './components/CalendarView';
 import { AddTripDialog } from './components/AddTripDialog';
 import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { PlaneTakeoff, Calendar, List } from 'lucide-react';
-import { loadTrips, saveTrips } from './utils/storageService';
+import { PlaneTakeoff, Calendar, List, Cloud, CloudOff } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
+import * as supabaseClient from './utils/supabase/client';
+import { loadTrips, saveTrips } from './utils/storageService';
 
 export interface SocialMediaLink {
   id: string;
@@ -59,16 +60,81 @@ export interface Trip {
 }
 
 export default function App() {
-  // Load trips from localStorage on mount
-  const [trips, setTrips] = useState<Trip[]>(() => loadTrips());
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [tripTabState, setTripTabState] = useState<Record<string, { tab: string; scrollPosition: number }>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
 
-  // Save trips to localStorage whenever they change
+  // Load trips from Supabase on mount
   useEffect(() => {
-    saveTrips(trips);
+    loadTripsFromSupabase();
+  }, []);
+
+  // Load trips from Supabase with localStorage fallback
+  const loadTripsFromSupabase = async () => {
+    try {
+      setIsLoading(true);
+      setSyncStatus('syncing');
+      
+      const fetchedTrips = await supabaseClient.fetchTrips();
+      
+      // If no trips in Supabase, check localStorage for migration
+      if (fetchedTrips.length === 0) {
+        const localTrips = loadTrips();
+        if (localTrips.length > 0) {
+          console.log('Migrating trips from localStorage to Supabase...');
+          await supabaseClient.saveAllTrips(localTrips);
+          setTrips(localTrips);
+          toast.success(`Migrated ${localTrips.length} trips to cloud storage`);
+        } else {
+          setTrips([]);
+        }
+      } else {
+        setTrips(fetchedTrips);
+        // Keep localStorage in sync as a backup
+        saveTrips(fetchedTrips);
+      }
+      
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Failed to load trips from Supabase:', error);
+      toast.error('Failed to sync with cloud. Using local data.');
+      
+      // Fallback to localStorage
+      const localTrips = loadTrips();
+      setTrips(localTrips);
+      setSyncStatus('offline');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-sync trips to Supabase when they change
+  useEffect(() => {
+    if (!isLoading && trips.length >= 0) {
+      syncTripsToSupabase();
+    }
   }, [trips]);
+
+  // Sync trips to Supabase
+  const syncTripsToSupabase = async () => {
+    if (syncStatus === 'offline') return;
+    
+    try {
+      setSyncStatus('syncing');
+      await supabaseClient.saveAllTrips(trips);
+      // Also save to localStorage as backup
+      saveTrips(trips);
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Failed to sync trips to Supabase:', error);
+      // Still save to localStorage
+      saveTrips(trips);
+      setSyncStatus('offline');
+    }
+  };
 
   const selectedTrip = trips.find(trip => trip.id === selectedTripId);
 
@@ -156,84 +222,127 @@ export default function App() {
                 <p className="text-sm text-gray-500">Organize your adventures</p>
               </div>
             </button>
-            <Button onClick={() => setIsAddDialogOpen(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-              <PlaneTakeoff className="w-4 h-4 mr-2" />
-              New Trip
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* Sync Status Indicator */}
+              <div className="flex items-center gap-2 text-sm">
+                {syncStatus === 'synced' && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Cloud className="w-4 h-4" />
+                    <span className="hidden sm:inline">Synced</span>
+                  </div>
+                )}
+                {syncStatus === 'syncing' && (
+                  <div className="flex items-center gap-1 text-blue-600">
+                    <Cloud className="w-4 h-4 animate-pulse" />
+                    <span className="hidden sm:inline">Syncing...</span>
+                  </div>
+                )}
+                {syncStatus === 'offline' && (
+                  <div className="flex items-center gap-1 text-gray-500">
+                    <CloudOff className="w-4 h-4" />
+                    <span className="hidden sm:inline">Offline</span>
+                  </div>
+                )}
+              </div>
+              <Button onClick={() => setIsAddDialogOpen(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                <PlaneTakeoff className="w-4 h-4 mr-2" />
+                New Trip
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="list" className="w-full">
-          {!selectedTripId && (
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-              <TabsTrigger value="list" className="flex items-center gap-2">
-                <List className="w-4 h-4" />
-                My Trips
-              </TabsTrigger>
-              <TabsTrigger value="calendar" className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Calendar View
-              </TabsTrigger>
-            </TabsList>
-          )}
-
-          <TabsContent value="list" className="space-y-6">
-            {selectedTrip ? (
-              <TripDetails
-                trip={selectedTrip}
-                onBack={() => setSelectedTripId(null)}
-                onUpdate={updateTrip}
-                onUpdateDates={updateTripDates}
-                onUpdateInfo={updateTripInfo}
-                onDelete={() => deleteTrip(selectedTrip.id)}
-                defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
-                defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
-                onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
-              />
-            ) : (
-              <TripList
-                trips={trips}
-                onSelectTrip={setSelectedTripId}
-                onDeleteTrip={deleteTrip}
-                onUpdateDates={updateTripDates}
-                onUpdateInfo={updateTripInfo}
-              />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Cloud className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-pulse" />
+              <p className="text-gray-600">Loading your trips...</p>
+            </div>
+          </div>
+        ) : (
+          <Tabs defaultValue="list" className="w-full">
+            {!selectedTripId && (
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+                <TabsTrigger value="list" className="flex items-center gap-2">
+                  <List className="w-4 h-4" />
+                  My Trips
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Calendar View
+                </TabsTrigger>
+              </TabsList>
             )}
-          </TabsContent>
 
-          <TabsContent value="calendar" className="space-y-6">
-            {selectedTrip ? (
-              <TripDetails
-                trip={selectedTrip}
-                onBack={() => setSelectedTripId(null)}
-                onUpdate={updateTrip}
-                onUpdateDates={updateTripDates}
-                onUpdateInfo={updateTripInfo}
-                onDelete={() => deleteTrip(selectedTrip.id)}
-                defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
-                defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
-                onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
-              />
-            ) : (
-              <CalendarView
-                trips={trips}
-                onSelectTrip={setSelectedTripId}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="list" className="space-y-6">
+              {selectedTrip ? (
+                <TripDetails
+                  trip={selectedTrip}
+                  onBack={() => setSelectedTripId(null)}
+                  onUpdate={updateTrip}
+                  onUpdateDates={updateTripDates}
+                  onUpdateInfo={updateTripInfo}
+                  onDelete={() => deleteTrip(selectedTrip.id)}
+                  defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
+                  defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
+                  onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
+                />
+              ) : (
+                <TripList
+                  trips={trips}
+                  onSelectTrip={setSelectedTripId}
+                  onDeleteTrip={deleteTrip}
+                  onUpdateDates={updateTripDates}
+                  onUpdateInfo={updateTripInfo}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="calendar" className="space-y-6">
+              {selectedTrip ? (
+                <TripDetails
+                  trip={selectedTrip}
+                  onBack={() => setSelectedTripId(null)}
+                  onUpdate={updateTrip}
+                  onUpdateDates={updateTripDates}
+                  onUpdateInfo={updateTripInfo}
+                  onDelete={() => deleteTrip(selectedTrip.id)}
+                  defaultTab={tripTabState[selectedTrip.id]?.tab || 'info'}
+                  defaultScrollPosition={tripTabState[selectedTrip.id]?.scrollPosition || 0}
+                  onTabChange={(tab, scrollPosition) => updateTripTabState(selectedTrip.id, tab, scrollPosition)}
+                />
+              ) : (
+                <CalendarView
+                  trips={trips}
+                  onSelectTrip={setSelectedTripId}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="border-t bg-white/60 backdrop-blur-sm mt-12">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <p>
-              💾 All trips are automatically saved to your browser's local storage
-            </p>
+            <div className="flex items-center gap-2">
+              {syncStatus === 'synced' && (
+                <span className="flex items-center gap-1 text-green-600">
+                  <Cloud className="w-3 h-3" />
+                  Cloud storage enabled
+                </span>
+              )}
+              {syncStatus === 'offline' && (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <CloudOff className="w-3 h-3" />
+                  Using local storage
+                </span>
+              )}
+            </div>
             <p>
               {trips.length} {trips.length === 1 ? 'trip' : 'trips'} saved
             </p>
