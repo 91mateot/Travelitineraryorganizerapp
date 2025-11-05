@@ -109,7 +109,7 @@ export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: E
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto"
+        className="w-[95vw] max-w-[550px] max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => {
           // Allow interactions with Google Places autocomplete dropdown
           const target = e.target as HTMLElement;

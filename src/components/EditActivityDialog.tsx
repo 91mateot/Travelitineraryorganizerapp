@@ -25,10 +25,11 @@ import { Plane, Hotel, Utensils, Activity as ActivityIcon, Car, MoreHorizontal, 
 import { PlaceAutocomplete } from './PlaceAutocompleteCustom';
 import { toast } from 'sonner@2.0.3';
 
-interface AddActivityDialogProps {
+interface EditActivityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddActivity: (activity: Omit<Activity, 'id'>) => void;
+  onUpdateActivity: (activityId: string, updates: Omit<Activity, 'id'>) => void;
+  activity: Activity | null;
   tripDays: string[];
 }
 
@@ -41,7 +42,7 @@ const activityTypes: { value: Activity['type']; label: string; icon: React.React
   { value: 'other', label: 'Other', icon: <MoreHorizontal className="w-4 h-4" /> },
 ];
 
-export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays }: AddActivityDialogProps) {
+export function EditActivityDialog({ open, onOpenChange, onUpdateActivity, activity, tripDays }: EditActivityDialogProps) {
   const [formData, setFormData] = useState({
     title: '',
     time: '',
@@ -52,31 +53,29 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
     day: tripDays[0] || '',
     isUnscheduled: false
   });
-  const [useLocationSearch, setUseLocationSearch] = useState(true);
+  const [useLocationSearch, setUseLocationSearch] = useState(false);
 
   const [socialMediaLinks, setSocialMediaLinks] = useState<SocialMediaLink[]>([]);
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [newLinkPlatform, setNewLinkPlatform] = useState<SocialMediaLink['platform']>('instagram');
 
-  // Reset form when dialog closes
+  // Load activity data when dialog opens
   useEffect(() => {
-    if (!open) {
+    if (open && activity) {
       setFormData({
-        title: '',
-        time: '',
-        description: '',
-        location: '',
-        coordinates: '',
-        type: 'activity',
-        day: tripDays[0] || '',
-        isUnscheduled: false
+        title: activity.title,
+        time: activity.time,
+        description: activity.description,
+        location: activity.location,
+        coordinates: activity.coordinates || '',
+        type: activity.type,
+        day: activity.day || tripDays[0] || '',
+        isUnscheduled: !activity.day
       });
-      setSocialMediaLinks([]);
-      setNewLinkUrl('');
-      setNewLinkPlatform('instagram');
-      setUseLocationSearch(true);
+      setSocialMediaLinks(activity.socialMedia || []);
+      setUseLocationSearch(false); // Default to manual mode for editing
     }
-  }, [open, tripDays]);
+  }, [open, activity, tripDays]);
 
   const detectPlatform = (url: string): SocialMediaLink['platform'] => {
     if (url.includes('instagram.com')) return 'instagram';
@@ -101,6 +100,10 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
     setNewLinkPlatform('instagram');
   };
 
+  const removeSocialMediaLink = (id: string) => {
+    setSocialMediaLinks(socialMediaLinks.filter(link => link.id !== id));
+  };
+
   const handleLocationSelected = (place: { name: string; address: string; coordinates: string; placeType?: string }) => {
     console.log('🎯 Location selected for activity:', place);
     setFormData({
@@ -109,18 +112,16 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
       coordinates: place.coordinates
     });
     
-    toast.success('📍 Location added!', {
+    toast.success('📍 Location updated!', {
       description: `${place.name} will appear on the map`
     });
-  };
-
-  const removeSocialMediaLink = (id: string) => {
-    setSocialMediaLinks(socialMediaLinks.filter(link => link.id !== id));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!activity) return;
+
     // Only include day if not unscheduled, and coordinates if available
     // Explicitly exclude isUnscheduled from activity data
     const { isUnscheduled, ...activityFields } = formData;
@@ -131,24 +132,10 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
       socialMedia: socialMediaLinks.length > 0 ? socialMediaLinks : undefined
     };
     
-    onAddActivity(activityData);
-    
-    // Reset form
-    setFormData({
-      title: '',
-      time: '',
-      description: '',
-      location: '',
-      coordinates: '',
-      type: 'activity',
-      day: tripDays[0] || '',
-      isUnscheduled: false
-    });
-    setSocialMediaLinks([]);
-    setNewLinkUrl('');
-    setUseLocationSearch(true);
-    
+    onUpdateActivity(activity.id, activityData);
     onOpenChange(false);
+    
+    toast.success('Activity updated successfully!');
   };
 
   const formatDayLabel = (day: string, index: number) => {
@@ -156,15 +143,17 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
     return `Day ${index + 1} - ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   };
 
+  if (!activity) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <DialogTitle>Add Activity</DialogTitle>
+              <DialogTitle>Edit Activity</DialogTitle>
               <DialogDescription>
-                Add a new activity to your itinerary
+                Update the details of your activity
               </DialogDescription>
             </div>
             {formData.coordinates && (
@@ -300,11 +289,13 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     required
                   />
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-xs text-amber-900">
-                      💡 <strong>Tip:</strong> Use search mode (click "🔍 Search" above) to automatically get GPS coordinates and show this activity on the trip map!
-                    </p>
-                  </div>
+                  {!formData.coordinates && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs text-amber-900">
+                        💡 <strong>Tip:</strong> Use search mode (click "🔍 Search" above) to automatically get GPS coordinates and show this activity on the trip map!
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -432,7 +423,7 @@ export function AddActivityDialog({ open, onOpenChange, onAddActivity, tripDays 
               type="submit"
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
             >
-              Add Activity
+              Save Changes
             </Button>
           </DialogFooter>
         </form>

@@ -33,7 +33,7 @@ export function AddMapDialog({ open, onOpenChange, onAdd, currentMapUrl }: AddMa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Map className="w-5 h-5" />

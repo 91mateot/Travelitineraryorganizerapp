@@ -12,12 +12,12 @@ export function loadGoogleMapsAPI(): Promise<void> {
     return loadPromise;
   }
 
-  // Check if already loaded
+  // Check if already loaded - check for the new Place API
   if (
     window.google &&
     window.google.maps &&
     window.google.maps.places &&
-    window.google.maps.places.Autocomplete
+    window.google.maps.places.Place
   ) {
     console.log('✅ Google Maps API already fully loaded');
     return Promise.resolve();
@@ -79,7 +79,7 @@ export function loadGoogleMapsAPI(): Promise<void> {
           window.google &&
           window.google.maps &&
           window.google.maps.places &&
-          window.google.maps.places.Autocomplete
+          window.google.maps.places.Place
         ) {
           console.log('✅ Google Maps Places library ready');
           resolve();
@@ -92,11 +92,11 @@ export function loadGoogleMapsAPI(): Promise<void> {
             hasGoogle: !!window.google,
             hasMaps: !!(window.google && window.google.maps),
             hasPlaces: !!(window.google && window.google.maps && window.google.maps.places),
-            hasAutocomplete: !!(
+            hasPlace: !!(
               window.google &&
               window.google.maps &&
               window.google.maps.places &&
-              window.google.maps.places.Autocomplete
+              window.google.maps.places.Place
             ),
           });
           reject(error);
@@ -121,7 +121,8 @@ export function loadGoogleMapsAPI(): Promise<void> {
   console.log('🚀 Loading Google Maps API with Places library...');
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=Function.prototype`;
+    // Include both places and geometry libraries for enhanced search capabilities
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&loading=async`;
     script.async = true;
     script.defer = true;
 
@@ -139,7 +140,7 @@ export function loadGoogleMapsAPI(): Promise<void> {
           window.google &&
           window.google.maps &&
           window.google.maps.places &&
-          window.google.maps.places.Autocomplete
+          window.google.maps.places.Place
         ) {
           console.log('✅ Google Maps API fully initialized with Places library');
           resolve();
@@ -153,6 +154,7 @@ export function loadGoogleMapsAPI(): Promise<void> {
             hasGoogle: !!window.google,
             hasMaps: !!(window.google && window.google.maps),
             hasPlaces: !!(window.google && window.google.maps && window.google.maps.places),
+            hasPlace: !!(window.google && window.google.maps && window.google.maps.places && window.google.maps.places.Place),
           });
           reject(error);
           return;

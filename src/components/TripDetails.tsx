@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Textarea } from './ui/textarea';
 import { AddActivityDialog } from './AddActivityDialog';
+import { EditActivityDialog } from './EditActivityDialog';
 import { AddPlaceDialog } from './AddPlaceDialog';
 import { ImportPlacesDialog } from './ImportPlacesDialog';
 import { AddMapDialog } from './AddMapDialog';
@@ -52,6 +53,8 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInfo, onDelete, defaultTab = 'info', defaultScrollPosition = 0, onTabChange }: TripDetailsProps) {
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
+  const [isEditActivityOpen, setIsEditActivityOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [isEditDatesOpen, setIsEditDatesOpen] = useState(false);
   const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
   const [isAddMapOpen, setIsAddMapOpen] = useState(false);
@@ -179,20 +182,98 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
       id: Date.now().toString()
     };
     
-    const updatedTrip = {
+    let updatedTrip = {
       ...trip,
       activities: [...trip.activities, newActivity]
     };
+    
+    // If activity has coordinates, automatically add it to Places tab
+    if (newActivity.coordinates) {
+      const activityAsPlace: Place = {
+        id: `activity-place-${newActivity.id}`,
+        name: newActivity.title,
+        address: newActivity.location,
+        category: 'other',
+        notes: newActivity.description,
+        coordinates: newActivity.coordinates
+      };
+      
+      updatedTrip = {
+        ...updatedTrip,
+        places: [...(updatedTrip.places || []), activityAsPlace]
+      };
+    }
+    
+    onUpdate(updatedTrip);
+  };
+
+  const updateActivity = (activityId: string, updates: Omit<Activity, 'id'>) => {
+    const oldActivity = trip.activities.find(a => a.id === activityId);
+    const updatedActivity = { ...updates, id: activityId };
+    
+    let updatedTrip = {
+      ...trip,
+      activities: trip.activities.map(a => 
+        a.id === activityId ? updatedActivity : a
+      )
+    };
+    
+    // Handle Places tab synchronization
+    const placeId = `activity-place-${activityId}`;
+    const existingPlaceIndex = (trip.places || []).findIndex(p => p.id === placeId);
+    
+    if (updatedActivity.coordinates) {
+      // Activity has coordinates - create or update place
+      const activityAsPlace: Place = {
+        id: placeId,
+        name: updatedActivity.title,
+        address: updatedActivity.location,
+        category: 'other',
+        notes: updatedActivity.description,
+        coordinates: updatedActivity.coordinates
+      };
+      
+      if (existingPlaceIndex >= 0) {
+        // Update existing place
+        updatedTrip = {
+          ...updatedTrip,
+          places: (updatedTrip.places || []).map(p => 
+            p.id === placeId ? activityAsPlace : p
+          )
+        };
+      } else {
+        // Add new place
+        updatedTrip = {
+          ...updatedTrip,
+          places: [...(updatedTrip.places || []), activityAsPlace]
+        };
+      }
+    } else if (existingPlaceIndex >= 0) {
+      // Activity no longer has coordinates - remove from places
+      updatedTrip = {
+        ...updatedTrip,
+        places: (updatedTrip.places || []).filter(p => p.id !== placeId)
+      };
+    }
     
     onUpdate(updatedTrip);
   };
 
   const deleteActivity = (activityId: string) => {
+    const placeId = `activity-place-${activityId}`;
+    
     const updatedTrip = {
       ...trip,
-      activities: trip.activities.filter(a => a.id !== activityId)
+      activities: trip.activities.filter(a => a.id !== activityId),
+      // Also remove the corresponding place if it exists
+      places: (trip.places || []).filter(p => p.id !== placeId)
     };
     onUpdate(updatedTrip);
+  };
+
+  const handleEditActivity = (activity: Activity) => {
+    setEditingActivity(activity);
+    setIsEditActivityOpen(true);
   };
 
   const addMap = (mapUrl: string) => {
@@ -357,7 +438,7 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
 
       {/* Tabs for Itinerary and General Info */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className={`grid w-full max-w-md ${(trip.places && trip.places.length > 0) ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
+        <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
           <TabsTrigger value="info" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             General Info
@@ -366,12 +447,10 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
             <CalendarDays className="w-4 h-4" />
             Itinerary
           </TabsTrigger>
-          {trip.places && trip.places.length > 0 && (
-            <TabsTrigger value="places" className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Places ({trip.places.length})
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="places" className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Places ({(trip.places || []).length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="itinerary">
@@ -452,6 +531,11 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                               <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
                                 <MapPin className="w-3 h-3" />
                                 <span>{activity.location}</span>
+                                {activity.coordinates && (
+                                  <Badge variant="outline" className="ml-2 text-xs bg-green-50 text-green-700 border-green-300">
+                                    📍 On map
+                                  </Badge>
+                                )}
                               </div>
                               {activity.socialMedia && activity.socialMedia.length > 0 && (
                                 <div className="mt-3">
@@ -459,14 +543,26 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                                 </div>
                               )}
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteActivity(activity.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditActivity(activity)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="Edit activity"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteActivity(activity.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Delete activity"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -507,6 +603,11 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
                     <MapPin className="w-3 h-3" />
                     <span>{activity.location}</span>
+                    {activity.coordinates && (
+                      <Badge variant="outline" className="ml-2 text-xs bg-green-50 text-green-700 border-green-300">
+                        📍 On map
+                      </Badge>
+                    )}
                   </div>
                   
                   {activity.socialMedia && activity.socialMedia.length > 0 && (
@@ -536,8 +637,18 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => handleEditActivity(activity)}
+                      className="ml-auto text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      title="Edit activity"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => deleteActivity(activity.id)}
-                      className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -749,62 +860,68 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
         </TabsContent>
 
         {/* Places Tab */}
-        {trip.places && trip.places.length > 0 && (
-          <TabsContent value="places">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-gray-900">Saved Places</h2>
-                  <p className="text-sm text-gray-500 mt-1">{trip.places.length} place{trip.places.length !== 1 ? 's' : ''} to visit on your trip</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => setIsImportPlacesOpen(true)}
-                    size="sm"
-                    variant="outline"
-                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Import from Maps
-                  </Button>
-                  <Button
-                    onClick={() => setIsAddPlaceOpen(true)}
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Place
-                  </Button>
-                </div>
+        <TabsContent value="places">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-gray-900">Saved Places</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {(trip.places || []).length > 0 
+                    ? `${trip.places.length} place${trip.places.length !== 1 ? 's' : ''} to visit on your trip`
+                    : 'No places saved yet - add places manually or from itinerary activities with locations'
+                  }
+                </p>
               </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsImportPlacesOpen(true)}
+                  size="sm"
+                  variant="outline"
+                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Import from Maps
+                </Button>
+                <Button
+                  onClick={() => setIsAddPlaceOpen(true)}
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Place
+                </Button>
+              </div>
+            </div>
 
               {/* Category filters */}
-              <div className="mb-6">
-                <div className="flex flex-wrap gap-2">
-                  {['all', 'restaurant', 'hotel', 'attraction', 'shopping', 'transport', 'other'].map((cat) => {
-                    const count = cat === 'all' 
-                      ? trip.places.length 
-                      : trip.places.filter(p => p.category === cat).length;
-                    
-                    if (count === 0 && cat !== 'all') return null;
-                    
-                    return (
-                      <Badge
-                        key={cat}
-                        variant="outline"
-                        className="cursor-pointer hover:bg-blue-50"
-                      >
-                        {cat === 'all' ? '📍 All' : 
-                         cat === 'restaurant' ? '🍽️ Restaurants' :
-                         cat === 'hotel' ? '🏨 Hotels' :
-                         cat === 'attraction' ? '🎭 Attractions' :
-                         cat === 'shopping' ? '🛍️ Shopping' :
-                         cat === 'transport' ? '🚇 Transport' :
-                         '📍 Other'} ({count})
-                      </Badge>
-                    );
-                  })}
+              {(trip.places || []).length > 0 && (
+                <div className="mb-6">
+                  <div className="flex flex-wrap gap-2">
+                    {['all', 'restaurant', 'hotel', 'attraction', 'shopping', 'transport', 'other'].map((cat) => {
+                      const count = cat === 'all' 
+                        ? trip.places.length 
+                        : trip.places.filter(p => p.category === cat).length;
+                      
+                      if (count === 0 && cat !== 'all') return null;
+                      
+                      return (
+                        <Badge
+                          key={cat}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-blue-50"
+                        >
+                          {cat === 'all' ? '📍 All' : 
+                           cat === 'restaurant' ? '🍽️ Restaurants' :
+                           cat === 'hotel' ? '🏨 Hotels' :
+                           cat === 'attraction' ? '🎭 Attractions' :
+                           cat === 'shopping' ? '🛍️ Shopping' :
+                           cat === 'transport' ? '🚇 Transport' :
+                           '📍 Other'} ({count})
+                        </Badge>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Google Maps List Section */}
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
@@ -854,17 +971,35 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
 
               {/* Interactive Map */}
               <div className="mb-6">
-                <PlacesMap places={trip.places} />
-                {trip.places.some(p => p.coordinates) && (
+                <PlacesMap places={trip.places || []} activities={trip.activities} />
+                {((trip.places || []).some(p => p.coordinates) || trip.activities.some(a => a.coordinates)) && (
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    Click markers to view place details • Markers are color-coded by category
+                    Click markers to view details • 🔵 Circles = Places • ⭐ Stars = Activities • Color-coded by type
                   </p>
                 )}
               </div>
 
               {/* Places List */}
               <div className="space-y-3">
-                {trip.places.map((place) => {
+                {(trip.places || []).length === 0 ? (
+                  <div className="text-center py-12">
+                    <MapPin className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                    <h3 className="text-gray-700 mb-2">No places yet</h3>
+                    <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">
+                      Add places manually or add activities with locations in the Itinerary tab. Activities with coordinates will automatically appear here.
+                    </p>
+                    <div className="flex gap-2 justify-center">
+                      <Button
+                        onClick={() => setIsAddPlaceOpen(true)}
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Your First Place
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  (trip.places || []).map((place) => {
                   const categoryIcons = {
                     restaurant: { icon: Utensils, color: 'bg-orange-100 text-orange-600' },
                     hotel: { icon: Hotel, color: 'bg-blue-100 text-blue-600' },
@@ -928,17 +1063,25 @@ export function TripDetails({ trip, onBack, onUpdate, onUpdateDates, onUpdateInf
                       </div>
                     </Card>
                   );
-                })}
+                  })
+                )}
               </div>
             </Card>
           </TabsContent>
-        )}
       </Tabs>
 
       <AddActivityDialog
         open={isAddActivityOpen}
         onOpenChange={setIsAddActivityOpen}
         onAddActivity={addActivity}
+        tripDays={days}
+      />
+
+      <EditActivityDialog
+        open={isEditActivityOpen}
+        onOpenChange={setIsEditActivityOpen}
+        onUpdateActivity={updateActivity}
+        activity={editingActivity}
         tripDays={days}
       />
 

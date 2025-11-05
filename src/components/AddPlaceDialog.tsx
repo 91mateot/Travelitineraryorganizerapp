@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { MapPin, Loader2 } from 'lucide-react';
 import { Place } from '../App';
 import { geocodeAddress } from '../utils/geocodingService';
-import { PlaceAutocomplete } from './PlaceAutocomplete';
+import { PlaceAutocomplete } from './PlaceAutocompleteCustom';
 import { toast } from 'sonner@2.0.3';
 
 interface AddPlaceDialogProps {
@@ -108,7 +108,7 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5" />
@@ -144,23 +144,26 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
                 <div className="space-y-2">
                   <Label htmlFor="search">Search for Place *</Label>
                   <PlaceAutocomplete
-                    key={open ? 'autocomplete-open' : 'autocomplete-closed'}
+                    key={`autocomplete-${open}`}
                     value={name}
                     onChange={setName}
                     onPlaceSelected={handlePlaceSelected}
-                    placeholder="Search any city, landmark, restaurant, hotel, or location..."
+                    placeholder="e.g., BOOKOFF Yao Nagahata, Starbucks Tokyo, Eiffel Tower..."
                   />
                   {!name && (
                     <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
                       <p className="text-xs text-green-900 mb-1">
-                        <strong>✨ Smart Search will auto-fill:</strong>
+                        <strong>✨ Enhanced Search will auto-fill:</strong>
                       </p>
                       <ul className="text-xs text-green-800 ml-4 space-y-0.5">
-                        <li>• Place name (official name)</li>
+                        <li>• Place name (official business name)</li>
                         <li>• Full address with postal code</li>
-                        <li>• Exact GPS coordinates</li>
+                        <li>• Exact GPS coordinates for maps</li>
                         <li>• Suggested category (restaurant, hotel, etc.)</li>
                       </ul>
+                      <p className="text-xs text-green-900 mt-2">
+                        <strong>💡 Tip:</strong> If dropdown doesn't show what you want, type the full name and press Enter to perform a direct search.
+                      </p>
                     </div>
                   )}
                 </div>

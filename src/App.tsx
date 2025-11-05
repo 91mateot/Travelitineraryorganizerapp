@@ -23,6 +23,7 @@ export interface Activity {
   time: string;
   description: string;
   location: string;
+  coordinates?: string; // Format: "lat,lng" - for map integration
   type: 'flight' | 'hotel' | 'activity' | 'restaurant' | 'transport' | 'other';
   day?: string; // Optional - for unscheduled activities
   socialMedia?: SocialMediaLink[];
