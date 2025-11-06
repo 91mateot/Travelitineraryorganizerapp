@@ -4,7 +4,7 @@ import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
 
 interface PlacesMapProps {
   places: Place[];
-  activities?: Activity[]; // Optional: activities with coordinates to show on map
+  activities?: Activity[];
 }
 
 declare global {
@@ -39,14 +39,12 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
   const initializeMap = () => {
     if (!mapRef.current || !window.google) return;
 
-    // Get places and activities with coordinates
     const placesWithCoords = places.filter(p => p.coordinates);
     const activitiesWithCoords = activities.filter(a => a.coordinates);
     const allCoords = [...placesWithCoords, ...activitiesWithCoords];
     
     if (!allCoords.length) return;
 
-    // Calculate center
     const coords = allCoords.map(item => {
       const [lat, lng] = item.coordinates!.split(',').map(Number);
       return { lat, lng };
@@ -57,7 +55,6 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
       lng: coords.reduce((sum, c) => sum + c.lng, 0) / coords.length,
     };
 
-    // Create map
     mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
       center,
       zoom: 13,
@@ -76,74 +73,70 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
   const updateMarkers = () => {
     if (!mapInstanceRef.current || !window.google) return;
 
-    // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    // Get places and activities with coordinates
     const placesWithCoords = places.filter(p => p.coordinates);
     const activitiesWithCoords = activities.filter(a => a.coordinates);
 
-    // Add new markers
     const bounds = new window.google.maps.LatLngBounds();
-    let markerIndex = 0;
 
-    // Category/Type colors
-    const placeColors: Record<Place['category'], string> = {
-      restaurant: '#ea580c',
-      hotel: '#2563eb',
-      attraction: '#9333ea',
-      shopping: '#ec4899',
-      transport: '#16a34a',
-      other: '#6b7280',
+    const categoryEmojis: Record<Place['category'], string> = {
+      restaurant: '🍽️',
+      cafe: '☕',
+      fastfood: '🍕',
+      bakery: '🍰',
+      bar: '🍺',
+      hotel: '🏨',
+      attraction: '🎭',
+      museum: '🏛️',
+      gallery: '🎨',
+      park: '🌳',
+      beach: '🏖️',
+      entertainment: '🎬',
+      venue: '🎪',
+      shopping: '🛍️',
+      transport: '🚇',
+      school: '🏫',
+      spa: '💆',
+      gym: '💪',
+      pharmacy: '💊',
+      bank: '🏦',
+      gas: '⛽',
+      parking: '🅿️',
+      other: '📍',
     };
 
-    const activityColors: Record<Activity['type'], string> = {
-      flight: '#0ea5e9',
-      hotel: '#2563eb',
-      restaurant: '#ea580c',
-      activity: '#9333ea',
-      transport: '#16a34a',
-      other: '#6b7280',
-    };
-
-    // Add place markers
     placesWithCoords.forEach((place) => {
       const [lat, lng] = place.coordinates!.split(',').map(Number);
       const position = { lat, lng };
 
-      const color = placeColors[place.category];
-      const label = String.fromCharCode(65 + (markerIndex % 26)); // A, B, C, etc.
-      markerIndex++;
+      const emoji = categoryEmojis[place.category];
+      const isActivityPlace = place.id.startsWith('activity-place-');
 
-      // Create marker with custom color
       const marker = new window.google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: place.name,
-        label: {
-          text: label,
-          color: 'white',
-          fontSize: '14px',
-          fontWeight: 'bold',
-        },
         icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 20,
-          fillColor: color,
-          fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 3,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+              <text x="20" y="30" font-size="32" text-anchor="middle">${emoji}</text>
+              ${isActivityPlace ? '<text x="32" y="12" font-size="14">⭐</text>' : ''}
+            </svg>
+          `),
+          scaledSize: new window.google.maps.Size(40, 40),
+          anchor: new window.google.maps.Point(20, 40),
         },
       });
 
-      // Create info window
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
           <div style="padding: 8px; max-width: 250px;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-              <span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600;">Place</span>
+              <span style="font-size: 20px;">${emoji}</span>
               <span style="background: #f3f4f6; color: #6b7280; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase;">${place.category}</span>
+              ${isActivityPlace ? '<span style="font-size: 14px;">⭐</span>' : ''}
             </div>
             <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #111827;">${place.name}</h3>
             <p style="margin: 0 0 4px 0; font-size: 14px; color: #6b7280;">${place.address}</p>
@@ -160,45 +153,37 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
       bounds.extend(position);
     });
 
-    // Add activity markers
     activitiesWithCoords.forEach((activity) => {
+      const activityPlaceId = `activity-place-${activity.id}`;
+      if (placesWithCoords.some(p => p.id === activityPlaceId)) {
+        return;
+      }
+
       const [lat, lng] = activity.coordinates!.split(',').map(Number);
       const position = { lat, lng };
 
-      const color = activityColors[activity.type];
-      const label = String.fromCharCode(65 + (markerIndex % 26)); // Continue labeling
-      markerIndex++;
+      const dayLabel = activity.day ? new Date(activity.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Unscheduled';
 
-      // Create marker with different style (star shape for activities)
       const marker = new window.google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: activity.title,
-        label: {
-          text: label,
-          color: 'white',
-          fontSize: '14px',
-          fontWeight: 'bold',
-        },
         icon: {
-          path: 'M 0,-24 L 6,-8 L 24,-8 L 10,2 L 16,18 L 0,8 L -16,18 L -10,2 L -24,-8 L -6,-8 Z', // Star shape
-          scale: 0.8,
-          fillColor: color,
-          fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 2,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+              <text x="20" y="30" font-size="32" text-anchor="middle">⭐</text>
+            </svg>
+          `),
+          scaledSize: new window.google.maps.Size(40, 40),
+          anchor: new window.google.maps.Point(20, 40),
         },
       });
 
-      // Format day for display
-      const dayLabel = activity.day ? new Date(activity.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Unscheduled';
-
-      // Create info window
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
           <div style="padding: 8px; max-width: 250px;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-              <span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600;">Activity</span>
+              <span style="font-size: 20px;">⭐</span>
               <span style="background: #f3f4f6; color: #6b7280; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase;">${activity.type}</span>
             </div>
             <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #111827;">${activity.title}</h3>
@@ -218,7 +203,6 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
       bounds.extend(position);
     });
 
-    // Fit bounds to show all markers
     const totalMarkers = placesWithCoords.length + activitiesWithCoords.length;
     if (totalMarkers > 1) {
       mapInstanceRef.current.fitBounds(bounds);

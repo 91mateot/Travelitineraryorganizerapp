@@ -121,8 +121,16 @@ export function loadGoogleMapsAPI(): Promise<void> {
   console.log('🚀 Loading Google Maps API with Places library...');
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    // Include both places and geometry libraries for enhanced search capabilities
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&loading=async`;
+    // Use callback method for more reliable loading
+    const callbackName = 'initGoogleMaps_' + Date.now();
+    
+    (window as any)[callbackName] = () => {
+      console.log('📦 Google Maps callback triggered');
+      delete (window as any)[callbackName];
+    };
+    
+    // Include both places and geometry libraries
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
 

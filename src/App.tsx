@@ -23,6 +23,9 @@ export interface Activity {
   time: string;
   description: string;
   location: string;
+  address?: string; // Full address from Google Places
+  city?: string; // City/destination for this activity
+  placeCategory?: 'restaurant' | 'cafe' | 'bar' | 'hotel' | 'attraction' | 'museum' | 'park' | 'beach' | 'entertainment' | 'shopping' | 'transport' | 'spa' | 'gym' | 'pharmacy' | 'bank' | 'gas' | 'parking' | 'fastfood' | 'bakery' | 'gallery' | 'venue' | 'school' | 'other'; // Category for map display
   coordinates?: string; // Format: "lat,lng" - for map integration
   type: 'flight' | 'hotel' | 'activity' | 'restaurant' | 'transport' | 'other';
   day?: string; // Optional - for unscheduled activities
@@ -39,7 +42,7 @@ export interface Place {
   id: string;
   name: string;
   address: string;
-  category: 'restaurant' | 'hotel' | 'attraction' | 'shopping' | 'transport' | 'other';
+  category: 'restaurant' | 'hotel' | 'attraction' | 'shopping' | 'transport' | 'cafe' | 'bar' | 'museum' | 'park' | 'beach' | 'entertainment' | 'spa' | 'gym' | 'pharmacy' | 'bank' | 'gas' | 'parking' | 'fastfood' | 'bakery' | 'gallery' | 'venue' | 'school' | 'other';
   notes?: string;
   coordinates?: string; // Format: "lat,lng"
 }

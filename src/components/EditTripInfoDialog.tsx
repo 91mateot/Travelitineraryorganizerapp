@@ -13,7 +13,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { X, MapPin } from 'lucide-react';
+import { X } from 'lucide-react';
 import { PlaceAutocomplete } from './PlaceAutocomplete';
 import { toast } from 'sonner@2.0.3';
 
@@ -40,17 +40,13 @@ export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: E
   }, [trip]);
 
   const handlePlaceSelected = (place: { name: string; address: string; coordinates: string }) => {
-    // Parse city and country from address
     const addressParts = place.address.split(',').map(s => s.trim());
     let cityName = place.name;
     let country = 'Unknown';
     
-    // Try to extract country (usually last part of address)
     if (addressParts.length > 0) {
       country = addressParts[addressParts.length - 1];
-      // If the name doesn't seem like a city, use the first address part
       if (addressParts.length > 1 && !place.name.includes(',')) {
-        // Check if name is in the address - if so, keep it, otherwise use address part
         const nameInAddress = addressParts.some(part => part.toLowerCase().includes(place.name.toLowerCase()));
         if (!nameInAddress && addressParts[0].length > 2) {
           cityName = addressParts[0];
@@ -58,7 +54,6 @@ export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: E
       }
     }
 
-    // Check if destination already added
     const alreadyAdded = selectedCities.some(
       c => c.name.toLowerCase() === cityName.toLowerCase() && c.country.toLowerCase() === country.toLowerCase()
     );
@@ -71,15 +66,16 @@ export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: E
       return;
     }
 
-    // Create new city with a default image
     const newCity: TripCity = {
       name: cityName,
       country: country,
-      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800' // Default travel image
+      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800'
     };
     
-    setSelectedCities([...selectedCities, newCity]);
-    setCitySearchQuery('');
+    requestAnimationFrame(() => {
+      setSelectedCities([...selectedCities, newCity]);
+      setCitySearchQuery('');
+    });
     
     toast.success('✨ Destination added!', {
       description: `${cityName}, ${country}`
@@ -148,7 +144,7 @@ export function EditTripInfoDialog({ open, onOpenChange, trip, onUpdateInfo }: E
               
               {/* PlaceAutocomplete for worldwide search */}
               <PlaceAutocomplete
-                key={`autocomplete-${open}-${trip?.id}`}
+                key={`edit-trip-${trip?.id}`}
                 value={citySearchQuery}
                 onChange={setCitySearchQuery}
                 onPlaceSelected={handlePlaceSelected}

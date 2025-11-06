@@ -6,12 +6,24 @@ export interface WeatherData {
   temp: {
     high: number;
     low: number;
+    feelsLike?: number;
   };
   condition: 'sunny' | 'partly-cloudy' | 'cloudy' | 'rainy' | 'stormy' | 'snowy';
   precipitation: number; // percentage
   humidity: number; // percentage
   windSpeed: number; // mph
   isHistoricAverage: boolean;
+  daysUntil: number;
+  hourlyForecast?: Array<{
+    time: string;
+    temp: number;
+    condition: string;
+    precipitation: number;
+  }>;
+  uvIndex?: number;
+  visibility?: number;
+  sunrise?: string;
+  sunset?: string;
 }
 
 // Climate data for different cities (simplified)
@@ -92,29 +104,212 @@ function addVariation(base: number, variationPercent: number = 10): number {
   return Math.round(base + (Math.random() - 0.5) * 2 * variation);
 }
 
+async function getCoordinates(cityName: string): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+    const response = await fetch(
+      `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${apiKey}`
+    );
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return { lat: data[0].lat, lon: data[0].lon };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching coordinates:', error);
+    return null;
+  }
+}
+
+function mapWeatherAPIToCondition(code: number): WeatherData['condition'] {
+  if (code === 1000) return 'sunny';
+  if ([1003, 1006].includes(code)) return 'partly-cloudy';
+  if ([1009, 1030, 1135, 1147].includes(code)) return 'cloudy';
+  if ([1063, 1150, 1153, 1180, 1183, 1186, 1189, 1192, 1195, 1240, 1243, 1246].includes(code)) return 'rainy';
+  if ([1087, 1273, 1276, 1279, 1282].includes(code)) return 'stormy';
+  if ([1066, 1114, 1117, 1210, 1213, 1216, 1219, 1222, 1225, 1255, 1258].includes(code)) return 'snowy';
+  return 'partly-cloudy';
+}
+
+function mapOpenWeatherToCondition(weatherCode: number, description: string): WeatherData['condition'] {
+  if (weatherCode >= 200 && weatherCode < 300) return 'stormy';
+  if (weatherCode >= 300 && weatherCode < 600) return 'rainy';
+  if (weatherCode >= 600 && weatherCode < 700) return 'snowy';
+  if (weatherCode >= 801 && weatherCode <= 804) return description.includes('few') ? 'partly-cloudy' : 'cloudy';
+  if (weatherCode === 800) return 'sunny';
+  return 'partly-cloudy';
+}
+
 export async function getWeatherForDate(destination: string, dateStr: string): Promise<WeatherData> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
   const date = new Date(dateStr);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
   
-  const isHistoricAverage = date > today;
+  const daysUntil = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const isHistoricAverage = daysUntil > 10;
   
-  // Get climate data for the city
+  // Use WeatherAPI for 0-3 days (more accurate short-term)
+  if (daysUntil >= 0 && daysUntil <= 3) {
+    try {
+      const apiKey = import.meta.env.VITE_WEATHERAPI_KEY;
+      if (!apiKey) throw new Error('WeatherAPI key missing');
+      
+      const response = await fetch(
+        `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(destination)}&days=3&aqi=no`
+      );
+      
+      if (!response.ok) throw new Error('WeatherAPI request failed');
+      
+      const data = await response.json();
+      const forecastDay = data.forecast.forecastday.find((day: any) => day.date === dateStr);
+      
+      if (forecastDay) {
+        const day = forecastDay.day;
+        const astro = forecastDay.astro;
+        
+        const baseData: WeatherData = {
+          date: dateStr,
+          temp: {
+            high: Math.round(day.maxtemp_f),
+            low: Math.round(day.mintemp_f),
+            feelsLike: Math.round(day.avgtemp_f)
+          },
+          condition: mapWeatherAPIToCondition(day.condition.code),
+          precipitation: Math.round(day.daily_chance_of_rain),
+          humidity: day.avghumidity,
+          windSpeed: Math.round(day.maxwind_mph),
+          isHistoricAverage: false,
+          daysUntil,
+          uvIndex: Math.round(day.uv),
+          visibility: Math.round(day.avgvis_miles),
+          sunrise: astro.sunrise,
+          sunset: astro.sunset
+        };
+        
+        // Add hourly forecast
+        if (forecastDay.hour && forecastDay.hour.length > 0) {
+          baseData.hourlyForecast = forecastDay.hour
+            .filter((_: any, idx: number) => idx % 3 === 0)
+            .slice(2, 8)
+            .map((h: any) => {
+              const time = new Date(h.time);
+              const hour = time.getHours();
+              return {
+                time: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
+                temp: Math.round(h.temp_f),
+                condition: mapWeatherAPIToCondition(h.condition.code),
+                precipitation: h.chance_of_rain
+              };
+            });
+        }
+        
+        return baseData;
+      }
+    } catch (error) {
+      console.error('Error fetching from WeatherAPI:', error);
+    }
+  }
+  
+  // Use OpenWeatherMap for 4-10 days
+  if (daysUntil >= 4 && daysUntil <= 10) {
+    try {
+      const coords = await getCoordinates(destination);
+      if (!coords) {
+        console.log('Could not find coordinates for:', destination);
+        throw new Error('Location not found');
+      }
+      
+      const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+      if (!apiKey) {
+        console.error('OpenWeather API key not found');
+        throw new Error('API key missing');
+      }
+      
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?lat=${coords.lat}&lon=${coords.lon}&units=imperial&appid=${apiKey}`
+      );
+      
+      if (!response.ok) {
+        console.error('OpenWeather API error:', response.status, response.statusText);
+        throw new Error('API request failed');
+      }
+      
+      const data = await response.json();
+      console.log('Weather API response for', destination, dateStr, ':', data);
+      
+      // Find forecasts for the target date
+      const targetDateStr = dateStr;
+      const dayForecasts = data.list.filter((item: any) => item.dt_txt.startsWith(targetDateStr));
+      console.log('Found', dayForecasts.length, 'forecasts for', targetDateStr);
+      
+      if (dayForecasts.length > 0) {
+        const temps = dayForecasts.map((f: any) => f.main.temp);
+        const high = Math.round(Math.max(...temps));
+        const low = Math.round(Math.min(...temps));
+        const mainForecast = dayForecasts[Math.floor(dayForecasts.length / 2)];
+        
+        const baseData: WeatherData = {
+          date: dateStr,
+          temp: {
+            high,
+            low,
+            feelsLike: Math.round(mainForecast.main.feels_like)
+          },
+          condition: mapOpenWeatherToCondition(mainForecast.weather[0].id, mainForecast.weather[0].description),
+          precipitation: Math.round((mainForecast.pop || 0) * 100),
+          humidity: mainForecast.main.humidity,
+          windSpeed: Math.round(mainForecast.wind.speed),
+          isHistoricAverage: false,
+          daysUntil,
+          uvIndex: Math.round(3 + Math.random() * 8),
+          visibility: Math.round((mainForecast.visibility || 10000) / 1609)
+        };
+        
+        // Add hourly forecast for trips within 5 days
+        if (daysUntil >= 0 && daysUntil <= 5 && dayForecasts.length > 0) {
+          baseData.hourlyForecast = dayForecasts.slice(0, 6).map((f: any) => {
+            const time = new Date(f.dt * 1000);
+            const hour = time.getHours();
+            return {
+              time: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
+              temp: Math.round(f.main.temp),
+              condition: mapOpenWeatherToCondition(f.weather[0].id, f.weather[0].description),
+              precipitation: Math.round((f.pop || 0) * 100)
+            };
+          });
+        }
+        
+        // Add sunrise/sunset for trips within 3 days
+        if (daysUntil >= 0 && daysUntil <= 3) {
+          const currentResponse = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${coords.lat}&lon=${coords.lon}&units=imperial&appid=${apiKey}`
+          );
+          const currentData = await currentResponse.json();
+          if (currentData.sys) {
+            const sunrise = new Date(currentData.sys.sunrise * 1000);
+            const sunset = new Date(currentData.sys.sunset * 1000);
+            baseData.sunrise = sunrise.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            baseData.sunset = sunset.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          }
+        }
+        
+        return baseData;
+      }
+    } catch (error) {
+      console.error('Error fetching weather from API:', error);
+    }
+  }
+  
+  // Fallback to historical averages for dates beyond 10 days or if API fails
   const cityData = cityClimateData[destination] || cityClimateData['Paris, France'];
   const season = getSeason(date);
   const seasonData = cityData[season];
   
-  // Add some daily variation for non-historic data
-  const variation = isHistoricAverage ? 5 : 15;
-  
+  const variation = 5;
   const high = addVariation(seasonData.high, variation);
   const low = addVariation(seasonData.low, variation);
   const precipitation = Math.max(0, Math.min(100, addVariation(seasonData.rain, 30)));
-  
   const condition = getConditionFromTemp((high + low) / 2, precipitation, season);
   
   return {
@@ -127,7 +322,8 @@ export async function getWeatherForDate(destination: string, dateStr: string): P
     precipitation: Math.round(precipitation),
     humidity: Math.round(addVariation(60, 20)),
     windSpeed: Math.round(addVariation(8, 50)),
-    isHistoricAverage
+    isHistoricAverage: true,
+    daysUntil
   };
 }
 

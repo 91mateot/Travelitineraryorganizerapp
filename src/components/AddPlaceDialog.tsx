@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { MapPin, Loader2 } from 'lucide-react';
 import { Place } from '../App';
 import { geocodeAddress } from '../utils/geocodingService';
-import { PlaceAutocomplete } from './PlaceAutocompleteCustom';
+import { PlaceAutocomplete } from './PlaceAutocomplete';
 import { toast } from 'sonner@2.0.3';
 
 interface AddPlaceDialogProps {
@@ -40,18 +40,43 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
 
   const handlePlaceSelected = (place: { name: string; address: string; coordinates: string; placeType?: string }) => {
     console.log('🎯 Place selected in dialog:', place);
-    setName(place.name);
-    setAddress(place.address);
-    setCoordinates(place.coordinates);
     
-    // Auto-suggest category based on place type
-    if (place.placeType && ['restaurant', 'hotel', 'attraction', 'shopping', 'transport'].includes(place.placeType)) {
-      setCategory(place.placeType as Place['category']);
-      console.log('✅ Category auto-set to:', place.placeType);
-    }
-    
-    toast.success('✨ Place details auto-filled!', {
-      description: `${place.name} - All details ready to save`
+    requestAnimationFrame(() => {
+      setName(place.name);
+      setAddress(place.address);
+      setCoordinates(place.coordinates);
+      
+      let detectedCategory: Place['category'] = 'other';
+      if (place.placeType) {
+        if (place.placeType.includes('bakery')) detectedCategory = 'bakery';
+        else if (place.placeType.includes('meal_takeaway') || place.placeType.includes('fast_food')) detectedCategory = 'fastfood';
+        else if (place.placeType.includes('cafe')) detectedCategory = 'cafe';
+        else if (place.placeType.includes('bar') || place.placeType.includes('night_club')) detectedCategory = 'bar';
+        else if (place.placeType.includes('restaurant')) detectedCategory = 'restaurant';
+        else if (place.placeType.includes('art_gallery')) detectedCategory = 'gallery';
+        else if (place.placeType.includes('museum')) detectedCategory = 'museum';
+        else if (place.placeType.includes('stadium') || place.placeType.includes('event_venue')) detectedCategory = 'venue';
+        else if (place.placeType.includes('movie_theater') || place.placeType.includes('bowling_alley') || place.placeType.includes('amusement_park')) detectedCategory = 'entertainment';
+        else if (place.placeType.includes('beach')) detectedCategory = 'beach';
+        else if (place.placeType.includes('park')) detectedCategory = 'park';
+        else if (place.placeType.includes('tourist_attraction')) detectedCategory = 'attraction';
+        else if (place.placeType.includes('lodging')) detectedCategory = 'hotel';
+        else if (place.placeType.includes('shopping_mall') || place.placeType.includes('store')) detectedCategory = 'shopping';
+        else if (place.placeType.includes('transit_station') || place.placeType.includes('airport')) detectedCategory = 'transport';
+        else if (place.placeType.includes('school') || place.placeType.includes('university')) detectedCategory = 'school';
+        else if (place.placeType.includes('spa') || place.placeType.includes('beauty_salon')) detectedCategory = 'spa';
+        else if (place.placeType.includes('gym')) detectedCategory = 'gym';
+        else if (place.placeType.includes('pharmacy')) detectedCategory = 'pharmacy';
+        else if (place.placeType.includes('bank') || place.placeType.includes('atm')) detectedCategory = 'bank';
+        else if (place.placeType.includes('gas_station')) detectedCategory = 'gas';
+        else if (place.placeType.includes('parking')) detectedCategory = 'parking';
+      }
+      setCategory(detectedCategory);
+      console.log('✅ Category auto-set to:', detectedCategory);
+      
+      toast.success('✨ Place details auto-filled!', {
+        description: `${place.name} - All details ready to save`
+      });
     });
   };
 
@@ -108,7 +133,16 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => {
+          // Allow interactions with Google Places autocomplete dropdown
+          const target = e.target as HTMLElement;
+          if (target.closest('.pac-container')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5" />
@@ -144,7 +178,7 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
                 <div className="space-y-2">
                   <Label htmlFor="search">Search for Place *</Label>
                   <PlaceAutocomplete
-                    key={`autocomplete-${open}`}
+                    key="add-place"
                     value={name}
                     onChange={setName}
                     onPlaceSelected={handlePlaceSelected}
@@ -232,10 +266,27 @@ export function AddPlaceDialog({ open, onOpenChange, onAdd }: AddPlaceDialogProp
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="restaurant">🍽️ Restaurant</SelectItem>
+                  <SelectItem value="cafe">☕ Cafe</SelectItem>
+                  <SelectItem value="fastfood">🍕 Fast Food</SelectItem>
+                  <SelectItem value="bakery">🍰 Bakery</SelectItem>
+                  <SelectItem value="bar">🍺 Bar/Nightlife</SelectItem>
                   <SelectItem value="hotel">🏨 Hotel</SelectItem>
                   <SelectItem value="attraction">🎭 Attraction</SelectItem>
+                  <SelectItem value="museum">🏛️ Museum</SelectItem>
+                  <SelectItem value="gallery">🎨 Art Gallery</SelectItem>
+                  <SelectItem value="park">🌳 Park/Nature</SelectItem>
+                  <SelectItem value="beach">🏖️ Beach</SelectItem>
+                  <SelectItem value="entertainment">🎬 Entertainment</SelectItem>
+                  <SelectItem value="venue">🎪 Event Venue</SelectItem>
                   <SelectItem value="shopping">🛍️ Shopping</SelectItem>
                   <SelectItem value="transport">🚇 Transport</SelectItem>
+                  <SelectItem value="school">🏫 School</SelectItem>
+                  <SelectItem value="spa">💆 Spa/Wellness</SelectItem>
+                  <SelectItem value="gym">💪 Gym/Fitness</SelectItem>
+                  <SelectItem value="pharmacy">💊 Pharmacy</SelectItem>
+                  <SelectItem value="bank">🏦 Bank/ATM</SelectItem>
+                  <SelectItem value="gas">⛽ Gas Station</SelectItem>
+                  <SelectItem value="parking">🅿️ Parking</SelectItem>
                   <SelectItem value="other">📍 Other</SelectItem>
                 </SelectContent>
               </Select>
