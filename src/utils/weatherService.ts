@@ -141,73 +141,73 @@ function mapOpenWeatherToCondition(weatherCode: number, description: string): We
 }
 
 export async function getWeatherForDate(destination: string, dateStr: string): Promise<WeatherData> {
-  const date = new Date(dateStr);
+  const date = new Date(dateStr + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  date.setHours(0, 0, 0, 0);
   
   const daysUntil = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const isHistoricAverage = daysUntil > 10;
   
   // Use WeatherAPI for 0-3 days (more accurate short-term)
   if (daysUntil >= 0 && daysUntil <= 3) {
-    try {
-      const apiKey = import.meta.env.VITE_WEATHERAPI_KEY;
-      if (!apiKey) throw new Error('WeatherAPI key missing');
-      
-      const response = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(destination)}&days=3&aqi=no`
-      );
-      
-      if (!response.ok) throw new Error('WeatherAPI request failed');
-      
-      const data = await response.json();
-      const forecastDay = data.forecast.forecastday.find((day: any) => day.date === dateStr);
-      
-      if (forecastDay) {
-        const day = forecastDay.day;
-        const astro = forecastDay.astro;
+    const apiKey = import.meta.env.VITE_WEATHERAPI_KEY;
+    if (!apiKey) {
+      console.error('WeatherAPI key missing');
+    } else {
+      try {
+        const response = await fetch(
+          `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(destination)}&days=3&aqi=no`
+        );
         
-        const baseData: WeatherData = {
-          date: dateStr,
-          temp: {
-            high: Math.round(day.maxtemp_f),
-            low: Math.round(day.mintemp_f),
-            feelsLike: Math.round(day.avgtemp_f)
-          },
-          condition: mapWeatherAPIToCondition(day.condition.code),
-          precipitation: Math.round(day.daily_chance_of_rain),
-          humidity: day.avghumidity,
-          windSpeed: Math.round(day.maxwind_mph),
-          isHistoricAverage: false,
-          daysUntil,
-          uvIndex: Math.round(day.uv),
-          visibility: Math.round(day.avgvis_miles),
-          sunrise: astro.sunrise,
-          sunset: astro.sunset
-        };
-        
-        // Add hourly forecast
-        if (forecastDay.hour && forecastDay.hour.length > 0) {
-          baseData.hourlyForecast = forecastDay.hour
-            .filter((_: any, idx: number) => idx % 3 === 0)
-            .slice(2, 8)
-            .map((h: any) => {
-              const time = new Date(h.time);
-              const hour = time.getHours();
-              return {
-                time: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
-                temp: Math.round(h.temp_f),
-                condition: mapWeatherAPIToCondition(h.condition.code),
-                precipitation: h.chance_of_rain
-              };
-            });
+        if (response.ok) {
+          const data = await response.json();
+          const forecastDay = data.forecast.forecastday.find((day: any) => day.date === dateStr);
+          
+          if (forecastDay) {
+            const day = forecastDay.day;
+            const astro = forecastDay.astro;
+            
+            const baseData: WeatherData = {
+              date: dateStr,
+              temp: {
+                high: Math.round(day.maxtemp_f),
+                low: Math.round(day.mintemp_f),
+                feelsLike: Math.round(day.avgtemp_f)
+              },
+              condition: mapWeatherAPIToCondition(day.condition.code),
+              precipitation: Math.round(day.daily_chance_of_rain),
+              humidity: day.avghumidity,
+              windSpeed: Math.round(day.maxwind_mph),
+              isHistoricAverage: false,
+              daysUntil,
+              uvIndex: Math.round(day.uv),
+              visibility: Math.round(day.avgvis_miles),
+              sunrise: astro.sunrise,
+              sunset: astro.sunset
+            };
+            
+            // Add hourly forecast
+            if (forecastDay.hour && forecastDay.hour.length > 0) {
+              baseData.hourlyForecast = forecastDay.hour
+                .filter((_: any, idx: number) => idx % 3 === 0)
+                .slice(2, 8)
+                .map((h: any) => {
+                  const time = new Date(h.time);
+                  const hour = time.getHours();
+                  return {
+                    time: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
+                    temp: Math.round(h.temp_f),
+                    condition: mapWeatherAPIToCondition(h.condition.code),
+                    precipitation: h.chance_of_rain
+                  };
+                });
+            }
+            
+            return baseData;
+          }
         }
-        
-        return baseData;
+      } catch (error) {
+        console.error('Error fetching from WeatherAPI:', error);
       }
-    } catch (error) {
-      console.error('Error fetching from WeatherAPI:', error);
     }
   }
   
