@@ -4,6 +4,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { getTripStatus } from '../utils/dateHelpers';
 
 interface CalendarViewProps {
   trips: Trip[];
@@ -141,15 +142,18 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                   {day}
                 </div>
                 <div className="space-y-1">
-                  {tripsOnDay.map(trip => (
-                    <button
-                      key={trip.id}
-                      onClick={() => onSelectTrip(trip.id)}
-                      className={`w-full text-left px-2 py-1 rounded text-xs border transition-colors hover:shadow-sm ${getStatusColor(trip.status)}`}
-                    >
-                      <div className="truncate">{trip.name || trip.destination}</div>
-                    </button>
-                  ))}
+                  {tripsOnDay.map(trip => {
+                    const computedStatus = getTripStatus(trip.startDate, trip.endDate);
+                    return (
+                      <button
+                        key={trip.id}
+                        onClick={() => onSelectTrip(trip.id)}
+                        className={`w-full text-left px-2 py-1 rounded text-xs border transition-colors hover:shadow-sm ${getStatusColor(computedStatus)}`}
+                      >
+                        <div className="truncate">{trip.name || trip.destination}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -168,6 +172,7 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
               const startDateObj = new Date(startYear, startMonth - 1, startDay);
               const endDateObj = new Date(endYear, endMonth - 1, endDay);
               const duration = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              const computedStatus = getTripStatus(trip.startDate, trip.endDate);
 
               return (
                 <button
@@ -183,7 +188,7 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                     />
                   </div>
                   <h4 className="text-gray-900 mb-1">{trip.name || trip.destination}</h4>
-                  
+
                   {/* Cities badges */}
                   {trip.cities && trip.cities.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -203,7 +208,7 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                       )}
                     </div>
                   )}
-                  
+
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                     <MapPin className="w-3 h-3" />
                     <span>
@@ -220,8 +225,8 @@ export function CalendarView({ trips, onSelectTrip }: CalendarViewProps) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={getStatusColor(trip.status)}>
-                      {trip.status}
+                    <Badge variant="outline" className={getStatusColor(computedStatus)}>
+                      {computedStatus}
                     </Badge>
                     <span className="text-xs text-gray-500">{duration} days</span>
                   </div>

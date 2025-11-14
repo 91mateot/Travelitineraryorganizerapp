@@ -3,6 +3,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { RichTextEditor } from './RichTextEditor';
+import { getTripStatus } from '../utils/dateHelpers';
 import {
   Edit,
   Plus,
@@ -39,6 +40,9 @@ export function TripInfo({
   onImportPlaces,
   onAddMap,
 }: TripInfoProps) {
+  // Compute trip status dynamically based on current date
+  const computedStatus = getTripStatus(trip.startDate, trip.endDate);
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -91,11 +95,11 @@ export function TripInfo({
           <div>
             <label className="text-sm text-gray-500 mb-2 block">Status</label>
             <Badge className={`${
-              trip.status === 'upcoming' ? 'bg-blue-100 text-blue-700' :
-              trip.status === 'ongoing' ? 'bg-green-100 text-green-700' :
+              computedStatus === 'upcoming' ? 'bg-blue-100 text-blue-700' :
+              computedStatus === 'ongoing' ? 'bg-green-100 text-green-700' :
               'bg-gray-100 text-gray-700'
             }`}>
-              {trip.status}
+              {computedStatus}
             </Badge>
           </div>
           <div className="md:col-span-2">

@@ -131,3 +131,21 @@ export function getCurrentDateString(): string {
 
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Determine trip status based on current date and trip dates
+ * @param startDate - Trip start date in YYYY-MM-DD format
+ * @param endDate - Trip end date in YYYY-MM-DD format
+ * @returns Trip status: 'upcoming', 'ongoing', or 'completed'
+ */
+export function getTripStatus(startDate: string, endDate: string): 'upcoming' | 'ongoing' | 'completed' {
+  const today = getCurrentDateString();
+
+  if (today < startDate) {
+    return 'upcoming';
+  } else if (today > endDate) {
+    return 'completed';
+  } else {
+    return 'ongoing';
+  }
+}

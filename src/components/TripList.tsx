@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { MapPin, Calendar, Trash2, Edit, Pencil } from 'lucide-react';
 import { EditTripDatesDialog } from './EditTripDatesDialog';
 import { EditTripInfoDialog } from './EditTripInfoDialog';
+import { getTripStatus } from '../utils/dateHelpers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,9 +73,10 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onU
     );
   }
 
-  const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-  const ongoingTrips = trips.filter(t => t.status === 'ongoing');
-  const completedTrips = trips.filter(t => t.status === 'completed');
+  // Compute trip status dynamically based on current date
+  const upcomingTrips = trips.filter(t => getTripStatus(t.startDate, t.endDate) === 'upcoming');
+  const ongoingTrips = trips.filter(t => getTripStatus(t.startDate, t.endDate) === 'ongoing');
+  const completedTrips = trips.filter(t => getTripStatus(t.startDate, t.endDate) === 'completed');
 
   return (
     <>
@@ -87,6 +89,7 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onU
                 <TripCard
                   key={trip.id}
                   trip={trip}
+                  computedStatus={getTripStatus(trip.startDate, trip.endDate)}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
                   onEditDates={setEditingDatesTrip}
@@ -108,6 +111,7 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onU
                 <TripCard
                   key={trip.id}
                   trip={trip}
+                  computedStatus={getTripStatus(trip.startDate, trip.endDate)}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
                   onEditDates={setEditingDatesTrip}
@@ -129,6 +133,7 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onU
                 <TripCard
                   key={trip.id}
                   trip={trip}
+                  computedStatus={getTripStatus(trip.startDate, trip.endDate)}
                   onSelect={onSelectTrip}
                   onDelete={onDeleteTrip}
                   onEditDates={setEditingDatesTrip}
@@ -162,6 +167,7 @@ export function TripList({ trips, onSelectTrip, onDeleteTrip, onUpdateDates, onU
 
 interface TripCardProps {
   trip: Trip;
+  computedStatus: 'upcoming' | 'ongoing' | 'completed';
   onSelect: (tripId: string) => void;
   onDelete: (tripId: string) => void;
   onEditDates: (trip: Trip) => void;
@@ -171,7 +177,7 @@ interface TripCardProps {
   getStatusColor: (status: Trip['status']) => string;
 }
 
-function TripCard({ trip, onSelect, onDelete, onEditDates, onEditInfo, formatDate, getDuration, getStatusColor }: TripCardProps) {
+function TripCard({ trip, computedStatus, onSelect, onDelete, onEditDates, onEditInfo, formatDate, getDuration, getStatusColor }: TripCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
       <div onClick={() => onSelect(trip.id)}>
@@ -182,8 +188,8 @@ function TripCard({ trip, onSelect, onDelete, onEditDates, onEditInfo, formatDat
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute top-3 right-3">
-            <Badge className={getStatusColor(trip.status)}>
-              {trip.status}
+            <Badge className={getStatusColor(computedStatus)}>
+              {computedStatus}
             </Badge>
           </div>
         </div>
