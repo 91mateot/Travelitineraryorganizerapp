@@ -1,6 +1,8 @@
 // Mock weather service that simulates realistic weather data
 // In production, this would call a real weather API like OpenWeatherMap or WeatherAPI
 
+import { weatherCache } from './weatherCache';
+
 export interface WeatherData {
   date: string;
   temp: {
@@ -328,15 +330,27 @@ export async function getWeatherForDate(destination: string, dateStr: string): P
 }
 
 export async function getWeatherForTrip(destination: string, startDate: string, endDate: string): Promise<WeatherData[]> {
+  // Check cache first
+  const cachedData = weatherCache.get(destination, startDate, endDate);
+  if (cachedData) {
+    console.log('Weather data retrieved from cache for', destination, startDate, endDate);
+    return cachedData;
+  }
+
+  // Fetch fresh data
   const start = new Date(startDate);
   const end = new Date(endDate);
   const weatherData: WeatherData[] = [];
-  
+
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = new Date(d).toISOString().split('T')[0];
     const weather = await getWeatherForDate(destination, dateStr);
     weatherData.push(weather);
   }
-  
+
+  // Store in cache before returning
+  weatherCache.set(destination, startDate, endDate, weatherData);
+  console.log('Weather data fetched and cached for', destination, startDate, endDate);
+
   return weatherData;
 }

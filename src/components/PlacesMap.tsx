@@ -1,23 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { Place, Activity } from '../App';
 import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
+import type { GoogleMap, GoogleMapsMarker } from '../types/google-maps';
 
 interface PlacesMapProps {
   places: Place[];
   activities?: Activity[];
 }
 
-declare global {
-  interface Window {
-    google: any;
-    initMap: () => void;
-  }
-}
-
 export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<GoogleMap | null>(null);
+  const markersRef = useRef<GoogleMapsMarker[]>([]);
 
   useEffect(() => {
     loadGoogleMapsAPI()
@@ -37,7 +31,8 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
   }, [places, activities]);
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.google) return;
+    if (!mapRef.current || !window.google?.maps) return;
+    const google = window.google;
 
     const placesWithCoords = places.filter(p => p.coordinates);
     const activitiesWithCoords = activities.filter(a => a.coordinates);
@@ -55,7 +50,7 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
       lng: coords.reduce((sum, c) => sum + c.lng, 0) / coords.length,
     };
 
-    mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center,
       zoom: 13,
       styles: [
@@ -71,7 +66,8 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
   };
 
   const updateMarkers = () => {
-    if (!mapInstanceRef.current || !window.google) return;
+    if (!mapInstanceRef.current || !window.google?.maps) return;
+    const google = window.google;
 
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
@@ -79,7 +75,7 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
     const placesWithCoords = places.filter(p => p.coordinates);
     const activitiesWithCoords = activities.filter(a => a.coordinates);
 
-    const bounds = new window.google.maps.LatLngBounds();
+    const bounds = new google.maps.LatLngBounds();
 
     const categoryEmojis: Record<Place['category'], string> = {
       restaurant: '🍽️',
@@ -114,7 +110,7 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
       const emoji = categoryEmojis[place.category];
       const isActivityPlace = place.id.startsWith('activity-place-');
 
-      const marker = new window.google.maps.Marker({
+      const marker = new google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: place.name,
@@ -125,12 +121,12 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
               ${isActivityPlace ? '<text x="32" y="12" font-size="14">⭐</text>' : ''}
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(40, 40),
-          anchor: new window.google.maps.Point(20, 40),
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 40),
         },
       });
 
-      const infoWindow = new window.google.maps.InfoWindow({
+      const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="padding: 8px; max-width: 250px;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
@@ -164,7 +160,7 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
 
       const dayLabel = activity.day ? new Date(activity.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Unscheduled';
 
-      const marker = new window.google.maps.Marker({
+      const marker = new google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: activity.title,
@@ -174,12 +170,12 @@ export function PlacesMap({ places, activities = [] }: PlacesMapProps) {
               <text x="20" y="30" font-size="32" text-anchor="middle">⭐</text>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(40, 40),
-          anchor: new window.google.maps.Point(20, 40),
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 40),
         },
       });
 
-      const infoWindow = new window.google.maps.InfoWindow({
+      const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="padding: 8px; max-width: 250px;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
